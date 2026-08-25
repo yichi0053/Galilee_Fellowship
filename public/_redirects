@@ -1,0 +1,7 @@
+# Cloudflare Pages 路由（架構書 §10.1）
+/wall            /wall.html      200
+/join            /join.html      200
+/admin           /admin.html     200
+/post/new        /new.html       200
+/post/*          /post.html      200
+/member/*        /member.html    200

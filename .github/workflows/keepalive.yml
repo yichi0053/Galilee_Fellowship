@@ -1,0 +1,40 @@
+# 架構書 §5.3 / OPERATIONS.md 第 3 節
+# Supabase 免費方案連續 7 天無資料庫請求即自動暫停。
+# 一旦暫停，成員下次開啟看到錯誤頁，18 週的活動就此結束。此 workflow 不可停用。
+name: Keepalive
+
+on:
+  schedule:
+    # 每兩天 UTC 03:00（台灣時間 11:00）。7 天的容忍度下，兩天間隔留有三次失敗的餘裕。
+    - cron: '0 3 */2 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ]; then
+            echo "::error::缺少 SUPABASE_URL 或 SUPABASE_ANON_KEY secret，見 docs/SETUP.md 第 4 節"
+            exit 1
+          fi
+
+          # 打 rooms_public（anon 可讀的 view），這會實際觸及資料庫而非只碰 CDN。
+          status=$(curl -sS -o /tmp/body.txt -w '%{http_code}' \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            "${SUPABASE_URL}/rest/v1/rooms_public?select=id&limit=1")
+
+          echo "HTTP ${status}"
+          cat /tmp/body.txt
+
+          if [ "${status}" != "200" ]; then
+            echo "::error::Keepalive 失敗，專案可能已暫停或 grants 未設定（架構書 §5.3）"
+            exit 1
+          fi
