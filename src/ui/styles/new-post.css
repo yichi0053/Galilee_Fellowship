@@ -1,0 +1,122 @@
+/*
+ * /post/new 專屬樣式（架構書 §9.1、§9.3）。
+ * 卡片與表單元件共用 paper.css。
+ */
+
+/* ---------------------------------------------------------- 配額 --- */
+
+.quota {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0 0 1.25rem;
+}
+
+.quota__chip {
+  flex: 1;
+  text-align: center;
+  padding: 0.5rem 0.4rem;
+  border-radius: 3px;
+  background: rgb(0 0 0 / 4%);
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+
+.quota__count {
+  display: block;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.2;
+}
+
+.quota__chip[data-empty="true"] .quota__count { color: var(--ink-soft); opacity: 0.5; }
+
+/* ------------------------------------------------------ 種類選擇 --- */
+
+.kind { display: flex; gap: 0.5rem; margin-bottom: 0.3rem; }
+
+.kind__option {
+  flex: 1;
+  display: block;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid rgb(0 0 0 / 18%);
+  border-radius: 3px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.kind__option input { position: absolute; opacity: 0; pointer-events: none; }
+
+.kind__option:has(input:checked) {
+  border-color: var(--pin);
+  box-shadow: inset 0 0 0 1px var(--pin);
+}
+
+.kind__option:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.5;
+  background: rgb(0 0 0 / 3%);
+}
+
+.kind__option:has(input:focus-visible) { outline: 2px solid var(--pin); outline-offset: 1px; }
+
+.kind__name { display: block; font-weight: 600; }
+.kind__note { display: block; font-size: 0.75rem; color: var(--ink-soft); margin-top: 0.15rem; }
+
+/* -------------------------------------------------------- 圖片 --- */
+
+.picker {
+  display: block;
+  border: 1px dashed rgb(0 0 0 / 28%);
+  border-radius: 3px;
+  padding: 1.4rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  background: #fff;
+}
+
+.picker:hover { background-color: #f4f1ea; }
+.picker input { position: absolute; opacity: 0; pointer-events: none; }
+.picker:has(input:focus-visible) { outline: 2px solid var(--pin); outline-offset: 1px; }
+
+/* 預覽刻意用相紙比例呈現，讓人看見貼上牆之後的樣子 */
+.preview {
+  margin-top: 0.6rem;
+  background: var(--card);
+  padding: 0.5rem 0.5rem 1.4rem;
+  box-shadow: 0 4px 10px rgb(0 0 0 / 18%);
+}
+
+.preview img { display: block; width: 100%; height: auto; }
+
+/* -------------------------------------------------------- 內文 --- */
+
+.body-input {
+  width: 100%;
+  min-height: 6rem;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--ink);
+  padding: 0.6rem 0.7rem;
+  border: 1px solid rgb(0 0 0 / 18%);
+  border-radius: 3px;
+  background: #fff;
+}
+
+.body-input:focus-visible { outline: 2px solid var(--pin); outline-offset: 1px; }
+
+.counter {
+  display: block;
+  text-align: right;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  margin-top: 0.2rem;
+}
+
+.counter[data-invalid="true"] { color: var(--pin); font-weight: 600; }

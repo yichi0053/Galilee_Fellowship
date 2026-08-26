@@ -1,0 +1,30 @@
+/*
+ * /join 專屬樣式（架構書 §10.4、§8.6）。
+ * 卡片與表單元件共用 paper.css。
+ */
+
+.join-consent {
+  background: rgb(0 0 0 / 3.5%);
+  border-left: 3px solid var(--cork-dark);
+  padding: 0.75rem 0.85rem;
+  margin: 1.25rem 0 1rem;
+  font-size: 0.8rem;
+  line-height: 1.65;
+  color: var(--ink-soft);
+}
+
+.join-consent__list { margin: 0.4rem 0 0; padding-left: 1.1rem; }
+.join-consent__list li { margin-bottom: 0.25rem; }
+
+.join-agree {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin-bottom: 1.25rem;
+  cursor: pointer;
+}
+
+.join-agree input { margin-top: 0.2rem; flex: none; }
+

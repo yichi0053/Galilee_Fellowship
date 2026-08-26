@@ -21,12 +21,12 @@ npm run dev
 | 指令 | 用途 |
 |---|---|
 | `npm run dev` | Vite 開發伺服器 |
-| `npm run dev:mock` | 以假資料啟動，**不需 Supabase 專案**，可直接看牆頁 |
 | `npm run build` | typecheck 後打包至 `dist/` |
 | `npm run lint` | ESLint，含架構邊界規則 |
 | `npm run typecheck` | 瀏覽器程式碼與 node 程式碼各一次 |
 | `npm test` | 單元測試 |
 | `npm run verify:rls` | §15.3 RLS 驗證清單（需 dev 專案）|
+| `npm run db:types` | 從雲端專案重新產生 `src/db/types.ts`，**每次跑完 migration 都要跑** |
 | `bash scripts/check-architecture-guard.sh` | 驗證架構護欄本身有效 |
 
 ## 技術棧
@@ -63,8 +63,8 @@ supabase/
 
 | 階段 | 工單 | 狀態 |
 |---|---|---|
-| 一 骨架與制度 | T-01 | ✅ 完成（外部服務申請待人工執行，見 SETUP.md） |
-| 二 資料層與 RLS | T-02、T-03 | 🟡 migration 已寫，**尚未於任何資料庫執行過** |
-| 三 Tracer bullet | T-04、T-07 | 🟡 Edge Function 已寫，串接待 Supabase 專案 |
+| 一 骨架與制度 | T-01 | ✅ 完成（Supabase dev 專案、Google OAuth 已設定並實測通過） |
+| 二 資料層與 RLS | T-02、T-03 | ✅ migration 已套用至 dev 專案，`verify:rls` 21 項全過 |
+| 三 Tracer bullet | T-04、T-07 | ✅ `auth`／`membership` 實作完成，join-room 已部署並冒煙測試（頁面於階段五）|
 | 四 深模組補完 | T-05、T-06 | ✅ 純邏輯完成，47 項測試全過 |
-| 五 牆頁與其餘頁面 | T-08 至 T-13 | 🟡 牆頁視覺完成（`npm run dev:mock` 可看）；其餘頁面待做 |
+| 五 牆頁與其餘頁面 | T-08 至 T-13 | 🟡 `/wall`、`/join`、`/post/new` 完成；`/post/:id`、`/member/:id`、`/admin` 待做 |

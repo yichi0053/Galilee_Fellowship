@@ -1,0 +1,144 @@
+/*
+ * 紙卡表單的共用樣式。
+ *
+ * 沿用牆頁的軟木塞板底與相紙卡片，讓表單頁看起來就是同一面牆的一部分。
+ * 共用的變數與 body 底紋由 wall.css 提供，本檔只加卡片與表單元件。
+ *
+ * /join 與 /post/new 共用這些 class；頁面專屬的部分寫在各自的 css。
+ */
+
+.paper-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem 1rem 3rem;
+}
+
+/* 卡片刻意不旋轉：牆上的貼文是隨手釘的，要填的表單不是。 */
+.paper-card {
+  width: min(30rem, 100%);
+  background: var(--card);
+  border-radius: 2px;
+  padding: 1.75rem 1.5rem 1.5rem;
+  box-shadow: 0 10px 24px rgb(0 0 0 / 22%);
+  position: relative;
+}
+
+.paper-card__pin {
+  position: absolute;
+  top: -0.6rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #e2685f, var(--pin));
+  box-shadow: 0 2px 4px rgb(0 0 0 / 35%);
+}
+
+.paper-card__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.paper-card__lead {
+  margin: 0 0 1.25rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+/* ------------------------------------------------------------- 表單 --- */
+
+.paper-field { margin-bottom: 1rem; }
+
+.paper-field__label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+
+.paper-field__hint {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--ink-soft);
+  margin-top: 0.2rem;
+}
+
+.paper-input {
+  width: 100%;
+  font-family: inherit;
+  font-size: 1rem;
+  color: var(--ink);
+  padding: 0.6rem 0.7rem;
+  border: 1px solid rgb(0 0 0 / 18%);
+  border-radius: 3px;
+  background: #fff;
+}
+
+.paper-input:focus-visible {
+  outline: 2px solid var(--pin);
+  outline-offset: 1px;
+}
+
+/* --------------------------------------------------------- 按鈕 --- */
+
+.paper-button {
+  width: 100%;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  background: #7a4b2a;
+  border: none;
+  border-radius: 3px;
+  padding: 0.7rem 1rem;
+  cursor: pointer;
+}
+
+.paper-button:hover:not([disabled]) { background-color: #8c5730; }
+.paper-button[disabled] { background: #6d6862; cursor: not-allowed; }
+
+.paper-button--google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid rgb(0 0 0 / 20%);
+}
+
+.paper-button--google:hover:not([disabled]) { background-color: #f4f1ea; }
+
+/* --------------------------------------------------------- 訊息 --- */
+
+.paper-message {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 3px;
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+.paper-message--error {
+  background: #fdecea;
+  border-left: 3px solid var(--pin);
+  color: #8a2e27;
+}
+
+.paper-message--info {
+  background: rgb(0 0 0 / 4%);
+  border-left: 3px solid var(--cork-dark);
+}
+
+.paper-links {
+  margin: 1rem 0 0;
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.paper-links a { color: var(--ink-soft); }

@@ -1,42 +1,38 @@
 /**
  * /wall —— 照片牆主頁（架構書 §10.1、§10.6）。
  *
- * UI 層禁止 import db/（§12.4 規則 2）。資料一律來自 modules 或（開發期間）mock。
+ * UI 層禁止 import db/（§12.4 規則 2）。資料一律經由各 module 的 index.ts。
  *
- * 目前接的是 mock 資料。tracer bullet（T-04）完成後，
- * loadWeek 與 loadTheme 換成 posts.listWeek 與 themes.getThemeForWeek 即可，
- * 本檔其餘部分不需更動——這正是分層的用處。
+ * 訪客與成員看到的是同一個版面、不同的資料來源：
+ * posts.listWeek 依傳入的 memberId 決定讀 posts_public（遮蔽姓名）或 posts（全名）。
+ * 本檔不知道那個分岔怎麼實作，只負責把身分交出去。
  */
 
 import '@ui/styles/wall.css';
 
 import { shiftWeeks, weeksBetween, weekStartOf } from '@domain/week';
 import type { WeekStart } from '@domain/week';
+import { canPost, getViewer } from '@modules/membership';
+import { listWeek } from '@modules/posts';
 import type { Post } from '@modules/posts';
+import { getThemeForWeek } from '@modules/themes';
 import type { Theme } from '@modules/themes';
 import { createLightbox } from '@ui/components/lightbox';
 import { disposeCards, observeEntrance, polaroidCard } from '@ui/components/polaroid';
 import { wallHeader } from '@ui/components/wall-header';
 import type { WeekOption } from '@ui/components/wall-header';
-import { mockListWeek, mockTheme, mockWeeks } from '@ui/mock/wall-data';
-
-const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 
 /** 第一期只有一種訪問身分需要在牆頁分辨：能不能發文（§10.3） */
 type Mode = 'member' | 'guest';
 
 const WEEKS_SHOWN = 4;
 
-async function loadWeek(week: WeekStart): Promise<readonly Post[]> {
-  if (USE_MOCK) return mockListWeek(week);
-  // T-04 接上：return posts.listWeek(week);
-  throw new Error('尚未接上資料層。開發期間請以 VITE_USE_MOCK=true 啟動。');
-}
-
-function loadTheme(week: WeekStart): Theme | null {
-  if (USE_MOCK) return mockTheme(week);
-  // T-04 接上：return themes.getThemeForWeek(week);
-  return null;
+/**
+ * 主題對訪客一律是 null（themes 的 RLS 是 is_active_member，且無 themes_public view）。
+ * 這不是錯誤，橫幅會改顯示「本週還沒有主題」，牆本身照常呈現。
+ */
+async function loadTheme(week: WeekStart): Promise<Theme | null> {
+  return getThemeForWeek(week);
 }
 
 function weekLabel(week: WeekStart, current: WeekStart): string {
@@ -116,15 +112,38 @@ function fab(mode: Mode): HTMLElement {
   return button;
 }
 
+function failure(detail: string): HTMLElement {
+  const box = document.createElement('div');
+  box.className = 'wall-weeks';
+  const note = document.createElement('p');
+  note.className = 'wall-empty';
+  note.setAttribute('role', 'alert');
+  note.textContent = `牆載入失敗：${detail}`;
+  box.append(note);
+  return box;
+}
+
 async function main(): Promise<void> {
   const app = document.getElementById('app');
   if (!app) return;
 
-  const mode: Mode = 'member'; // T-04 接上 membership.getViewer() 後改為實際判定
+  let viewer;
+  try {
+    viewer = await getViewer();
+  } catch (error: unknown) {
+    // 身分查不出來就整面牆都畫不了。與其留一個永遠的「載入中…」，
+    // 不如把原因顯示出來——這種失敗通常是環境變數或 RLS，訊息本身就是線索。
+    app.replaceChildren(failure(error instanceof Error ? error.message : '無法取得你的身分。'));
+    return;
+  }
+
+  const mode: Mode = canPost(viewer) ? 'member' : 'guest';
+  // 回補倒數與未遮蔽姓名都需要「我是誰」。訪客與停權者沒有 memberId，一律傳 null。
+  const asMemberId =
+    viewer.kind === 'member' || viewer.kind === 'admin' ? viewer.memberId : null;
+
   const current = weekStartOf();
-  const weeks = USE_MOCK
-    ? mockWeeks(WEEKS_SHOWN)
-    : Array.from({ length: WEEKS_SHOWN }, (_, i) => shiftWeeks(current, -i));
+  const weeks = Array.from({ length: WEEKS_SHOWN }, (_, i) => shiftWeeks(current, -i));
 
   const options: WeekOption[] = weeks.map((w) => ({ week: w, label: weekLabel(w, current) }));
   const lightbox = createLightbox();
@@ -134,7 +153,7 @@ async function main(): Promise<void> {
 
   const header = wallHeader({
     roomName: '加利利團契',
-    theme: loadTheme(current),
+    theme: await loadTheme(current),
     weeks: options,
     activeWeek: current,
     navActions: navActions(mode),
@@ -152,8 +171,13 @@ async function main(): Promise<void> {
   // 一次把四週全抓下來也還好（每週不到 30 則），但每一週各自成段，
   // 之後要改成捲到才載入時不需要動版面結構。
   for (const week of weeks) {
-    const posts = await loadWeek(week);
-    body.append(renderWeekSection(week, posts, loadTheme(week), mode, lightbox.open));
+    try {
+      const [posts, theme] = await Promise.all([listWeek(week, asMemberId), loadTheme(week)]);
+      body.append(renderWeekSection(week, posts, theme, mode, lightbox.open));
+    } catch (error: unknown) {
+      // 一週失敗不該讓其他三週也跟著消失，故錯誤就地呈現，迴圈繼續。
+      body.append(failure(error instanceof Error ? error.message : `${week} 載入失敗。`));
+    }
     detachEntrance?.();
     detachEntrance = observeEntrance(body);
   }
