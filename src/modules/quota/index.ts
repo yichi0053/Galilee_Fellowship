@@ -29,10 +29,22 @@ export type QuotaState = {
 /**
  * 查詢某位成員在某一週已計入配額的篇數。
  *
- * §9.1 的五個條件缺一不可：author_id 相符、week_start_date 為當週、type 相符、
- * counts_toward_quota = true、deleted_at is null。
- * 漏掉 counts_toward_quota 的失敗模式是回補期內刪除後配額沒有回補，
- * 使用者只會覺得「這網站壞了」而不會回報。
+ * 四個條件：author_id 相符、week_start_date 為當週、type 相符、
+ * counts_toward_quota = true。
+ *
+ * **刻意不濾 deleted_at**，這一點與直覺相反，所以寫清楚：
+ *
+ * 「有沒有用掉配額」這件事完全由 counts_toward_quota 表達，而那個欄位是
+ * migration 007 的 soft_delete_post 依伺服器時間決定的——回補期內刪除設為 false，
+ * 逾期刪除維持 true。三種狀態各自對應：
+ *
+ *   未刪除            counts_toward_quota = true   → 計數
+ *   回補期內刪除      counts_toward_quota = false  → 不計數（配額回補）
+ *   逾期刪除          counts_toward_quota = true   → 仍計數（不回補，ADR-0010）
+ *
+ * 若再加上 deleted_at is null，第三種狀態會被排除在計數之外，
+ * 於是**任何時候刪除都等於回補，ADR-0010 的回補期完全失去作用**。
+ * 那個失效是安靜的：配額看起來永遠夠用，沒有人會察覺每週上限已經形同虛設。
  */
 async function countUsed(memberId: string, week: WeekStart): Promise<UsedCounts> {
   const used: Record<PostKind, number> = { theme: 0, free: 0 };
@@ -46,8 +58,7 @@ async function countUsed(memberId: string, week: WeekStart): Promise<UsedCounts>
         .eq('author_id', memberId)
         .eq('week_start_date', week)
         .eq('type', kind)
-        .eq('counts_toward_quota', true)
-        .is('deleted_at', null);
+        .eq('counts_toward_quota', true);
 
       if (error) throw new Error(`查詢配額失敗（${kind}）：${error.message}`);
       used[kind] = count ?? 0;

@@ -185,7 +185,8 @@ async function createIdentity(
   return { userId, memberId, token: session.access_token };
 }
 
-async function createPost(memberId: string, body: string): Promise<string> {
+/** createdAt 可回填過去的時刻，用來測回補期已過的分支而不必真的等 10 分鐘 */
+async function createPost(memberId: string, body: string, createdAt?: Date): Promise<string> {
   const r = await admin('/rest/v1/posts', {
     method: 'POST',
     headers: { Prefer: 'return=representation' },
@@ -196,7 +197,10 @@ async function createPost(memberId: string, body: string): Promise<string> {
       image_path: `${memberId}/x.jpg`,
       thumb_path: `${memberId}/x_thumb.jpg`,
       body,
-      week_start_date: new Date().toISOString().slice(0, 10),
+      ...(createdAt ? { created_at: createdAt.toISOString() } : {}),
+      // §7.3：貼文歸屬於「週」而不是「日」。原本這裡填的是今天的日期，
+      // 週一以外的日子跑起來就與配額查詢的 week_start_date 對不上。
+      week_start_date: weekStartOf(),
     }),
   });
   return (r.body as Array<{ id: string }>)[0]!.id;
@@ -345,6 +349,35 @@ async function main(): Promise<void> {
     check('回補期內刪除會把 counts_toward_quota 設為 false（ADR-0010）',
       deleted?.deleted_at !== null && deleted?.counts_toward_quota === false,
       JSON.stringify(deleted));
+
+    // 另一半：ADR-0010 說「超過 10 分鐘刪除不回補」。回填 created_at 到 30 分鐘前，
+    // 不必真的等。這一項曾經是安靜壞掉的——配額查詢多帶了 deleted_at is null，
+    // 於是逾期刪除也被排除在計數之外，回補期形同虛設而沒有人會察覺。
+    const stale = await createPost(
+      memberA.memberId,
+      '成員 A 的舊貼文，用來測試逾期刪除不回補。',
+      new Date(Date.now() - 30 * 60_000),
+    );
+    await rest(asA, 'rpc/soft_delete_post', {
+      method: 'POST',
+      body: JSON.stringify({ p_id: stale }),
+    });
+    const rStale = await admin(`/rest/v1/posts?id=eq.${stale}&select=deleted_at,counts_toward_quota`);
+    const staleRow = rows(rStale)[0] as
+      | { deleted_at: string | null; counts_toward_quota: boolean }
+      | undefined;
+    check('逾期刪除維持 counts_toward_quota = true（ADR-0010：不回補）',
+      staleRow?.deleted_at !== null && staleRow?.counts_toward_quota === true,
+      JSON.stringify(staleRow));
+
+    // 光是欄位對還不夠：配額查詢必須真的把它算進去，否則欄位形同裝飾。
+    const rCount = await admin(
+      `/rest/v1/posts?select=id&author_id=eq.${memberA.memberId}` +
+        `&week_start_date=eq.${weekStartOf()}&type=eq.free&counts_toward_quota=eq.true`,
+    );
+    check('逾期刪除的貼文仍被配額查詢計入（否則回補期形同虛設）',
+      rows(rCount).some((r) => (r as { id: string }).id === stale),
+      `符合條件的列：${rows(rCount).length}`);
 
     // migration 005：§10.4 的 Viewer 判定必須能區分 orphan / suspended / left。
     // 001 的 members_select 是 is_active_member()，後兩者讀不到自己的列，
