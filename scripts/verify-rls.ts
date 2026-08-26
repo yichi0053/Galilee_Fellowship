@@ -12,6 +12,7 @@
  * 或把值放進 .env 後直接 `npm run verify:rls`。
  */
 
+import { IMAGE_CACHE_SECONDS, POST_IMAGES_BUCKET } from '../src/config/constants';
 import { weekStartOf } from '../src/domain/week';
 
 type Identity = { label: string; token: string | null };
@@ -109,6 +110,32 @@ function check(label: string, ok: boolean, detail = ''): void {
 
 function rows(r: RestResult): unknown[] {
   return Array.isArray(r.body) ? r.body : [];
+}
+
+/** 已上傳的測試檔案，於 finally 一併清除 */
+const uploadedObjects: string[] = [];
+
+/**
+ * 上傳一個最小的 JPEG 到 post-images。
+ *
+ * migration 003 的 policy 建在 storage.objects 上，而那張表的擁有者是
+ * supabase_storage_admin，不是 SQL Editor 用的 postgres——建不起來是有可能的，
+ * 且失敗模式是安靜的：migration 看起來成功，直到第一個人上傳照片才爆。
+ * 這幾項就是為了不讓那件事發生在正式上線之後。
+ */
+async function upload(path: string, token: string | null): Promise<number> {
+  const res = await fetch(`${URL_BASE}/storage/v1/object/${POST_IMAGES_BUCKET}/${path}`, {
+    method: 'POST',
+    headers: {
+      apikey: ANON_KEY!,
+      Authorization: `Bearer ${token ?? ANON_KEY}`,
+      'Content-Type': 'image/jpeg',
+      'cache-control': String(IMAGE_CACHE_SECONDS),
+    },
+    body: new Uint8Array([0xff, 0xd8, 0xff, 0xdb, 0x00, 0x01]),
+  });
+  if (res.ok) uploadedObjects.push(path);
+  return res.status;
 }
 
 /** PostgREST 對「無權限」的回應可能是 401/403，也可能是 200 加空陣列（RLS 濾掉） */
@@ -364,6 +391,42 @@ async function main(): Promise<void> {
       rForge.status >= 400, `status=${rForge.status}`);
 
     // ---- §15.2 優先序 4：mask_name 純函式 ----
+    console.log('\nmigration 003：Storage bucket 與 policy');
+
+    const bucket = await admin(`/storage/v1/bucket/${POST_IMAGES_BUCKET}`);
+    const cfg = bucket.body as {
+      public?: boolean;
+      file_size_limit?: number;
+      allowed_mime_types?: string[];
+    };
+    check('bucket public = true（訪客不登入即可看照片牆，§10.3）',
+      bucket.status === 200 && cfg.public === true, `status=${bucket.status} public=${cfg.public}`);
+    check('bucket 大小上限 10 MB、MIME 限 jpeg/png/webp（§9.3）',
+      cfg.file_size_limit === 10485760 &&
+        JSON.stringify(cfg.allowed_mime_types) ===
+          JSON.stringify(['image/jpeg', 'image/png', 'image/webp']),
+      `${cfg.file_size_limit} ${JSON.stringify(cfg.allowed_mime_types)}`);
+
+    const sOwn = await upload(`${memberA.userId}/verify.jpg`, memberA.token);
+    check('成員上傳得到自己的 uid 資料夾（post_images_insert）', sOwn === 200, `status=${sOwn}`);
+
+    // 這一項是 post_images_insert 的核心限制：路徑首層必須等於 auth.uid()。
+    const sCross = await upload(`${memberB.userId}/stolen.jpg`, memberA.token);
+    check('成員無法上傳到別人的資料夾', sCross >= 400, `status=${sCross}`);
+
+    const sAnon = await upload(`${memberA.userId}/anon.jpg`, null);
+    check('訪客無法上傳', sAnon >= 400, `status=${sAnon}`);
+
+    const pub = await fetch(
+      `${URL_BASE}/storage/v1/object/public/${POST_IMAGES_BUCKET}/${memberA.userId}/verify.jpg`,
+    );
+    check('訪客讀得到已上傳的圖（post_images_read + public bucket）',
+      pub.status === 200, `status=${pub.status}`);
+    // §9.4：Storage 預設 max-age 是 3600，會讓 egress 直接翻四倍。
+    check('Cache-Control 依上傳時指定的一年送出（§9.4 的 egress 控制）',
+      (pub.headers.get('cache-control') ?? '').includes(String(IMAGE_CACHE_SECONDS)),
+      pub.headers.get('cache-control') ?? '(無)');
+
     console.log('\n§15.2 優先序 4：mask_name');
 
     const maskCases: Array<[string, string]> = [
@@ -404,6 +467,13 @@ async function main(): Promise<void> {
       rJoin.status >= 400, `status=${rJoin.status}`);
   } finally {
     console.log('\n清理測試資料…');
+    // 檔案要先清：帳號一刪，uid 就查不回來，Storage 上會留下永久佔額度的孤兒檔。
+    if (uploadedObjects.length > 0) {
+      await admin(`/storage/v1/object/${POST_IMAGES_BUCKET}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ prefixes: uploadedObjects }),
+      });
+    }
     await cleanup(created);
   }
 
