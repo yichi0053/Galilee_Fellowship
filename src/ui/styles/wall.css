@@ -298,16 +298,34 @@ body {
 
 /* -------------------------------------------------------------- lightbox --- */
 
+/*
+ * <dialog> 有兩個內建樣式必須明確蓋掉，否則失敗模式都很難看出原因。
+ *
+ * 一、width / height 是 fit-content，margin 是 auto。
+ *    只寫 inset: 0 蓋不掉——過度約束時寬高勝出，再被 auto margin 推到正中央，
+ *    於是得到一個置中的小方塊而不是滿版。
+ *
+ * 二、dialog:not([open]) { display: none } 是**瀏覽器內建**樣式，
+ *    而下面的 display: flex 是作者樣式。層疊來源上作者永遠贏過內建，
+ *    與選擇器的 specificity 無關。少了本區塊最後那條規則，
+ *    關著的 lightbox 會一直畫在畫面正中央。
+ */
 .lightbox {
   position: fixed;
   inset: 0;
   z-index: 50;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
   padding: 0;
   border: 0;
   background: rgb(16 13 10 / 94%);
 }
+
+.lightbox:not([open]) { display: none; }
 
 .lightbox::backdrop { background: rgb(16 13 10 / 80%); }
 
