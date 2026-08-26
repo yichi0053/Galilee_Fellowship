@@ -27,8 +27,9 @@ cp .env.example .env
 > `service_role` key 繞過所有 RLS。它**只能**出現在 `.env`（已被 gitignore）與 Edge Function 的
 > secret 中，絕對不可加 `VITE_` 前綴，否則會被打包進瀏覽器 bundle。
 
-5. 依 ADR-0017，重複本步驟建立**第二個專案**作為開發環境，命名加上 `-dev` 後綴。
-   兩個專案共用 organization 的 Storage 與 egress 額度。
+5. **現在只開這一個，把它當開發專案用**（ADR-0017）。
+   隨便摸、隨便重建、`verify:rls` 想跑幾次都行。
+   正式專案在上線前才開，見本文第 7 節。
 
 ---
 
@@ -44,11 +45,11 @@ cp .env.example .env
      否則登入會被拒。24 人要逐一加入。若嫌麻煩則需送審 Publishing，審核可能需數日。
 3. **APIs & Services → Credentials → Create Credentials → OAuth client ID**
    - Application type：**Web application**
-   - Authorized redirect URIs 填入（兩個專案各一條）：
+   - Authorized redirect URIs 先填開發專案這一條：
      ```
      https://<你的-project-ref>.supabase.co/auth/v1/callback
-     https://<你的-dev-project-ref>.supabase.co/auth/v1/callback
      ```
+     正式專案開好後**再回來加第二條**，不要刪掉第一條。
 4. 取得 **Client ID** 與 **Client secret**
 5. 回到 Supabase Dashboard → **Authentication → Providers → Google**
    - 啟用，貼上 Client ID 與 Client secret
@@ -120,6 +121,38 @@ select id, name from rooms;
       照片與姓名會被同房間成員看到、持有連結的非成員可看到照片但姓名遮蔽、
       成員可自行刪除自己的貼文、退出房間後貼文仍會保留顯示。
       **此聲明須由團契負責人確認後才可上線。**
+
+---
+
+## 7. 上線前：開正式專案並切換
+
+你選擇先開一個專案當開發用，所以上線前有一組切換步驟。
+**這些事沒做完網站就是壞的，而且多半是安靜地壞**，故逐條列出。
+
+1. 開第二個 Supabase 專案，命名加上 `-prod`。免費方案允許 2 個 active project。
+2. 在新專案的 SQL Editor 依序執行 `supabase/migrations/` 的 001 至 004。
+   **不要執行 `seed.sql`** —— 它裡面的房間碼是 `DEV-ONLY-JOIN-CODE-0000`。
+   改為手動 insert 一列 `rooms`，房間碼自訂（至少 12 字元，§8.2）。
+3. `select id from rooms;` 取得**新的房間 uuid**。
+   它跟開發專案的不一樣，以下三處都要換：
+   - Cloudflare Pages 的環境變數 `VITE_ROOM_ID`
+   - Edge Function 的 secret：`npx supabase secrets set ROOM_ID=<新 uuid> --project-ref <prod-ref>`
+   - 本機 `.env`（若你還要接著開發）
+4. Cloudflare Pages 的 `VITE_SUPABASE_URL` 與 `VITE_SUPABASE_ANON_KEY` 換成正式專案的值。
+5. Google Cloud Console → Credentials → 你的 OAuth client，
+   **新增**正式專案的 redirect URI（保留開發那條）：
+   `https://<prod-ref>.supabase.co/auth/v1/callback`
+6. 正式專案的 **Authentication → Providers → Google** 也要貼一次 Client ID 與 secret。
+   這是最容易漏的一步：兩個專案各有各的 Auth 設定，不會自動同步。
+7. 正式專案的 **Authentication → URL Configuration** 填正式網址。
+8. 部署 Edge Function 到正式專案：
+   `npx supabase functions deploy join-room --project-ref <prod-ref>`
+9. GitHub secrets 的 `SUPABASE_URL` / `SUPABASE_ANON_KEY` 換成正式專案，
+   否則 keepalive 會一直 ping 開發專案，而**正式專案在第 7 天安靜暫停**。
+10. 最後跑一次 `npm run verify:rls` 指向正式專案，確認全綠，
+    然後**把它產生的測試帳號清乾淨**（腳本會自己刪，但請到
+    Authentication → Users 目視確認一次）。
+    此後不要再對正式專案跑這個腳本。
 
 ---
 
