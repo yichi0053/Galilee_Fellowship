@@ -1,0 +1,155 @@
+/**
+ * /post/:id 的結構煙霧測試。
+ *
+ * §15.2：UI 只驗「畫得出來、關鍵規則沒漏掉」。這一頁的關鍵規則是
+ * 「誰看得到刪除按鈕」——寫錯的方向有兩種，一種讓人刪不掉自己的貼文，
+ * 另一種讓人看到別人的刪除鍵。後者伺服器會擋（migration 007），但那時
+ * 使用者已經按下去了，看到的是一句 raise exception，那不是好的失敗方式。
+ */
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Viewer } from '@modules/membership';
+import type { Post, PostId } from '@modules/posts';
+
+const mocks = vi.hoisted(() => ({
+  getViewer: vi.fn(),
+  getPost: vi.fn(),
+  deletePost: vi.fn(),
+}));
+
+vi.mock('@modules/membership', () => ({ getViewer: mocks.getViewer }));
+vi.mock('@modules/posts', () => ({ getPost: mocks.getPost, deletePost: mocks.deletePost }));
+
+const POST_ID = '11497c3e-ce30-4398-8390-63925d87af89';
+const AUTHOR: Viewer = { kind: 'member', memberId: 'm-1', displayName: '陳小明' };
+const OTHER: Viewer = { kind: 'member', memberId: 'm-2', displayName: '林大華' };
+
+function makePost(over: Partial<Post> = {}): Post {
+  return {
+    id: POST_ID as PostId,
+    kind: 'free',
+    body: '宿舍樓下那攤滷味，老闆記得我不吃香菜。',
+    imageUrl: 'https://example.test/i.jpg',
+    thumbUrl: 'https://example.test/t.jpg',
+    rotationDeg: -1,
+    week: '2026-08-24' as Post['week'],
+    authorName: '陳小明',
+    authorId: 'm-1',
+    createdAt: new Date(Date.now() - 60_000),
+    refundableUntil: new Date(Date.now() + 9 * 60_000),
+    hiddenByAdmin: false,
+    ...over,
+  };
+}
+
+async function render(
+  options: { viewer?: Viewer; post?: Post | null; path?: string } = {},
+): Promise<HTMLElement> {
+  document.body.innerHTML = '<main id="app"></main>';
+  Object.defineProperty(window, 'location', {
+    value: {
+      replace: vi.fn(),
+      pathname: options.path ?? `/post/${POST_ID}`,
+      href: `http://localhost:5173${options.path ?? `/post/${POST_ID}`}`,
+    },
+    writable: true,
+    configurable: true,
+  });
+  mocks.getViewer.mockResolvedValue(options.viewer ?? AUTHOR);
+  mocks.getPost.mockResolvedValue(options.post === undefined ? makePost() : options.post);
+
+  vi.resetModules();
+  await import('./post');
+  await new Promise((r) => setTimeout(r, 0));
+  return document.getElementById('app') as HTMLElement;
+}
+
+const deleteButton = (app: HTMLElement): HTMLButtonElement | null =>
+  app.querySelector<HTMLButtonElement>('.paper-button--danger');
+
+async function clickThrough(app: HTMLElement, labels: string[]): Promise<void> {
+  for (const label of labels) {
+    const btn = Array.from(app.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent === label,
+    );
+    btn?.dispatchEvent(new Event('click', { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 0));
+  }
+}
+
+beforeEach(() => vi.clearAllMocks());
+
+describe('/post/:id 的可見性', () => {
+  it('作者看得到刪除按鈕與回補倒數', async () => {
+    const app = await render({ viewer: AUTHOR });
+    expect(deleteButton(app)?.textContent).toBe('刪除這則貼文');
+    expect(app.querySelector('.owner__countdown')?.textContent).toMatch(/還有 \d+:\d{2}/);
+  });
+
+  it('別的成員看不到刪除按鈕', async () => {
+    const app = await render({ viewer: OTHER });
+    expect(deleteButton(app)).toBeNull();
+    expect(app.querySelector('.owner')).toBeNull();
+  });
+
+  it('訪客看得到貼文但沒有任何操作（posts_public 不含 author_id）', async () => {
+    const app = await render({ viewer: { kind: 'guest' }, post: makePost({ authorId: null }) });
+    expect(app.querySelector('.post-body')).not.toBeNull();
+    expect(deleteButton(app)).toBeNull();
+  });
+
+  it('回補期已過時仍可刪除，但明說不會拿回配額', async () => {
+    const app = await render({ post: makePost({ refundableUntil: null }) });
+    expect(deleteButton(app)).not.toBeNull();
+    expect(app.querySelector('.owner__countdown')?.textContent).toContain('不會拿回');
+  });
+
+  it('被下架的貼文對作者顯示說明，而不是安靜地照常呈現（§9.5）', async () => {
+    const app = await render({ post: makePost({ hiddenByAdmin: true }) });
+    expect(app.querySelector('.paper-message--error')?.textContent).toContain('下架');
+  });
+
+  it('查無貼文時給出說明而不是空白', async () => {
+    const app = await render({ post: null });
+    expect(app.querySelector('.paper-card__title')?.textContent).toBe('找不到這則貼文');
+    expect(mocks.getPost).toHaveBeenCalledWith(POST_ID, 'm-1');
+  });
+
+  it('網址不是 uuid 時不去查資料庫', async () => {
+    const app = await render({ path: '/post/not-a-uuid' });
+    expect(mocks.getPost).not.toHaveBeenCalled();
+    expect(app.querySelector('.paper-card__title')?.textContent).toBe('找不到這則貼文');
+  });
+});
+
+describe('/post/:id 的刪除流程（ADR-0009：無法復原）', () => {
+  it('第一下只展開確認，不呼叫 deletePost', async () => {
+    const app = await render();
+    await clickThrough(app, ['刪除這則貼文']);
+    expect(mocks.deletePost).not.toHaveBeenCalled();
+    expect(app.querySelector('.owner__confirm')).not.toBeNull();
+  });
+
+  it('按「算了」收回確認，貼文還在', async () => {
+    const app = await render();
+    await clickThrough(app, ['刪除這則貼文', '算了']);
+    expect(mocks.deletePost).not.toHaveBeenCalled();
+    expect(deleteButton(app)?.textContent).toBe('刪除這則貼文');
+  });
+
+  it('確認後才呼叫 deletePost，成功則回牆頁', async () => {
+    const app = await render();
+    mocks.deletePost.mockResolvedValue(undefined);
+    await clickThrough(app, ['刪除這則貼文', '確定刪除']);
+    expect(mocks.deletePost).toHaveBeenCalledWith(POST_ID);
+    expect(window.location.replace).toHaveBeenCalledWith('/wall');
+  });
+
+  it('刪除失敗時顯示原因，並讓按鈕回到可再試的狀態', async () => {
+    const app = await render();
+    mocks.deletePost.mockRejectedValue(new Error('刪除失敗：只能刪除自己的貼文'));
+    await clickThrough(app, ['刪除這則貼文', '確定刪除']);
+    expect(app.querySelector('.paper-message--error')?.textContent).toContain('只能刪除自己的貼文');
+    expect(deleteButton(app)?.textContent).toBe('刪除這則貼文');
+    expect(window.location.replace).not.toHaveBeenCalled();
+  });
+});

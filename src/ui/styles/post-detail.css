@@ -1,0 +1,71 @@
+/*
+ * /post/:id 專屬樣式（架構書 §10.5、§9.1）。
+ * 卡片與按鈕共用 paper.css。
+ */
+
+.post-photo {
+  background: var(--card);
+  padding: 0.6rem 0.6rem 0;
+  margin: 0 0 1rem;
+  box-shadow: 0 4px 10px rgb(0 0 0 / 14%);
+}
+
+.post-photo img { display: block; width: 100%; height: auto; }
+
+.post-body {
+  margin: 0 0 0.6rem;
+  font-size: 1rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.post-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  margin: 0 0 1rem;
+}
+
+/* ------------------------------------------------- 作者專屬區塊 --- */
+
+.owner {
+  border-top: 1px solid rgb(0 0 0 / 10%);
+  padding-top: 1rem;
+}
+
+/* 倒數是在催人做決定，給它一點份量，但不要紅到像出事了 */
+.owner__countdown {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  margin-bottom: 0.6rem;
+}
+
+.owner__countdown[data-expired="true"] { color: var(--ink-soft); opacity: 0.75; }
+
+.paper-button--danger { background: #8a2e27; }
+.paper-button--danger:hover:not([disabled]) { background-color: #9d3730; }
+
+.paper-button--quiet {
+  background: transparent;
+  color: var(--ink-soft);
+  border: 1px solid rgb(0 0 0 / 18%);
+}
+
+.paper-button--quiet:hover:not([disabled]) { background-color: rgb(0 0 0 / 4%); }
+
+.owner__confirm { display: flex; gap: 0.5rem; }
+.owner__confirm .paper-button { flex: 1; }
+
+.hidden-note {
+  background: #fdecea;
+  border-left: 3px solid var(--pin);
+  color: #8a2e27;
+  padding: 0.6rem 0.75rem;
+  border-radius: 3px;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  margin: 0 0 1rem;
+}

@@ -23,12 +23,18 @@ export function createLightbox(): Lightbox {
   const bar = document.createElement('div');
   bar.className = 'lightbox__bar';
   const counter = document.createElement('span');
+  // 進入 /post/:id 的入口。lightbox 只放大圖，作者要刪除自己的貼文得從那一頁走，
+  // 而 §9.1 的回補期只有 10 分鐘——沒有這個連結，發錯的人在牆上找不到出路。
+  const detail = document.createElement('a');
+  detail.className = 'lightbox__detail';
+  detail.textContent = '這則的頁面';
+
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'lightbox__close';
   closeBtn.textContent = '✕';
   closeBtn.setAttribute('aria-label', '關閉');
-  bar.append(counter, closeBtn);
+  bar.append(counter, detail, closeBtn);
 
   const stage = document.createElement('div');
   stage.className = 'lightbox__stage';
@@ -74,6 +80,7 @@ export function createLightbox(): Lightbox {
 
     caption.textContent = post.body;
     counter.textContent = `${post.authorName} · ${stampFormat.format(post.createdAt)}（${cursor + 1}/${items.length}）`;
+    detail.href = `/post/${post.id}`;
     prevBtn.disabled = cursor === 0;
     nextBtn.disabled = cursor === items.length - 1;
   }

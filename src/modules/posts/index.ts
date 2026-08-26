@@ -342,8 +342,82 @@ function toPost(row: PostRow): Post {
   };
 }
 
-export async function getPost(_id: PostId): Promise<Post | null> {
-  throw new Error('T-04 未實作');
+/**
+ * 單則貼文。找不到、已軟刪除、或被下架且看的人不是作者，一律回 null。
+ *
+ * 身分同 listWeek 由呼叫端傳入：訪客讀 posts_public（遮蔽姓名），
+ * 成員讀 posts 本表（未遮蔽姓名、自己的回補倒數）。
+ */
+export async function getPost(id: PostId, asMemberId: string | null): Promise<Post | null> {
+  if (asMemberId === null) {
+    const { data, error } = await db
+      .from('posts_public')
+      .select(
+        'id, type, thumb_path, image_path, body, rotation_deg, week_start_date, created_at, display_name',
+      )
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (
+      !data ||
+      data.id === null ||
+      data.type === null ||
+      data.body === null ||
+      data.image_path === null ||
+      data.thumb_path === null ||
+      data.rotation_deg === null ||
+      data.week_start_date === null ||
+      data.created_at === null ||
+      data.display_name === null
+    ) {
+      return null;
+    }
+
+    return toPost({
+      id: data.id,
+      type: data.type,
+      body: data.body,
+      imagePath: data.image_path,
+      thumbPath: data.thumb_path,
+      rotationDeg: data.rotation_deg,
+      week: data.week_start_date,
+      createdAt: data.created_at,
+      authorName: data.display_name,
+      authorId: null,
+      hiddenByAdmin: false,
+      asMemberId: null,
+    });
+  }
+
+  const { data, error } = await db
+    .from('posts')
+    .select(
+      'id, type, thumb_path, image_path, body, rotation_deg, week_start_date, created_at, author_id, hidden_by_admin, room_members!inner(display_name)',
+    )
+    .eq('id', id)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+  // §9.5：下架的貼文只有作者本人看得到佔位，其他成員視同不存在。
+  if (data.hidden_by_admin && data.author_id !== asMemberId) return null;
+
+  return toPost({
+    id: data.id,
+    type: data.type,
+    body: data.body,
+    imagePath: data.image_path,
+    thumbPath: data.thumb_path,
+    rotationDeg: data.rotation_deg,
+    week: data.week_start_date,
+    createdAt: data.created_at,
+    authorName: data.room_members.display_name,
+    authorId: data.author_id,
+    hiddenByAdmin: data.hidden_by_admin,
+    asMemberId,
+  });
 }
 
 /** 編輯不影響配額（§9.5） */
