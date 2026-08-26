@@ -12,6 +12,8 @@
  * 或把值放進 .env 後直接 `npm run verify:rls`。
  */
 
+import { weekStartOf } from '../src/domain/week';
+
 type Identity = { label: string; token: string | null };
 
 const ROOM_ID = '00000000-0000-4000-8000-000000000001';
@@ -292,6 +294,35 @@ async function main(): Promise<void> {
     });
     check('成員無法以他人 author_id 發文',
       rForge.status >= 400, `status=${rForge.status}`);
+
+    // ---- §15.2 優先序 4：mask_name 純函式 ----
+    console.log('\n§15.2 優先序 4：mask_name');
+
+    const maskCases: Array<[string, string]> = [
+      ['陳小明', '陳小O'],
+      ['林大華強', '林大OO'],
+      ['小明', '小O'],
+      ['王', '王'],
+      ['', ''],
+      ['Alexander', 'AlOOOOOOO'],
+    ];
+    for (const [input, expected] of maskCases) {
+      const r = await rest(guest, 'rpc/mask_name', {
+        method: 'POST',
+        body: JSON.stringify({ n: input }),
+      });
+      check(`mask_name(${JSON.stringify(input)}) = ${JSON.stringify(expected)}`,
+        r.status === 200 && r.body === expected,
+        `status=${r.status} got=${JSON.stringify(r.body)}`);
+    }
+
+    // ---- 前端與資料庫的週界必須算出同一個值（§7.3）----
+    // 兩邊各自實作，在週日深夜與週一凌晨最容易分歧。
+    // 分歧的後果是配額查詢與貼文歸屬用了不同的一週，而且完全不會報錯。
+    const rWeek = await rest(guest, 'rpc/current_week_start', { method: 'POST', body: '{}' });
+    check('資料庫的 current_week_start() 與前端的 weekStartOf() 一致',
+      rWeek.status === 200 && rWeek.body === weekStartOf(),
+      `db=${JSON.stringify(rWeek.body)} frontend=${weekStartOf()}`);
 
     const rJoin = await rest(asA, 'room_members', {
       method: 'POST',
