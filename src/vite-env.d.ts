@@ -9,6 +9,8 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL: string;
   readonly VITE_SUPABASE_ANON_KEY: string;
   readonly VITE_ROOM_ID: string;
+  /** 開發期間以假資料驅動牆頁（見 src/ui/mock/）。正式環境不設此值 */
+  readonly VITE_USE_MOCK?: string;
 }
 
 interface ImportMeta {
