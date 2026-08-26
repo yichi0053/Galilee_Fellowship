@@ -5,6 +5,9 @@
  * 本模組只認識「登入的人」，完全不認識「房間成員」——後者是 membership 的職責。
  */
 
+import type { User } from '@supabase/supabase-js';
+import { db } from '@db/client';
+
 export type AuthUser = {
   readonly id: string;
   readonly email: string | null;
@@ -12,20 +15,57 @@ export type AuthUser = {
   readonly suggestedName: string | null;
 };
 
+/**
+ * supabase 的 User 帶著 provider token 等本模組以外不該看到的欄位，
+ * 依 §12.4 規則 3 於此轉為 domain type，不讓它跨出模組邊界。
+ */
+function toAuthUser(user: User): AuthUser {
+  const meta: Record<string, unknown> = user.user_metadata;
+  // Google 兩個欄位都給，取到哪個都可以；缺了就讓使用者自己填。
+  const name = meta['full_name'] ?? meta['name'];
+  return {
+    id: user.id,
+    email: user.email ?? null,
+    suggestedName: typeof name === 'string' && name.length > 0 ? name : null,
+  };
+}
+
 /** 觸發 Google OAuth。成功後導回 redirectTo（§10.4 流程 B 第 2 步導向 /join） */
-export async function signInWithGoogle(_redirectTo: string): Promise<void> {
-  throw new Error('T-04 未實作');
+export async function signInWithGoogle(redirectTo: string): Promise<void> {
+  const { error } = await db.auth.signInWithOAuth({
+    provider: 'google',
+    // 轉成絕對網址：Supabase 會拿它跟 Dashboard 的 Redirect URLs 白名單比對，
+    // 對不上時**不會報錯**，而是安靜地改導向 Site URL（docs/SETUP.md 第 2 節第 8 步）。
+    options: { redirectTo: new URL(redirectTo, window.location.origin).toString() },
+  });
+  if (error) throw error;
+  // 正常路徑上整個分頁已被導往 Google，本行之後的程式碼不會執行。
 }
 
 export async function getCurrentUser(): Promise<AuthUser | null> {
-  throw new Error('T-04 未實作');
+  // 先看本機 session。訪客不需登入即可看牆（§10.3），是佔多數的路徑，
+  // 這一支不打網路，避免每次開牆頁都多一次往返（§9.4）。
+  const { data: local } = await db.auth.getSession();
+  if (!local.session) return null;
+
+  // 有 session 才向伺服器確認。只信任本機的話，帳號已在後台被刪除或停權時，
+  // UI 會顯示為已登入、然後每個查詢都回空值——正是本專案最該避免的安靜失敗。
+  const { data, error } = await db.auth.getUser();
+  if (error || !data.user) return null;
+  return toAuthUser(data.user);
 }
 
 export async function signOut(): Promise<void> {
-  throw new Error('T-04 未實作');
+  const { error } = await db.auth.signOut();
+  if (error) throw error;
 }
 
 /** session 變動時通知（token refresh、其他分頁登出）。回傳取消訂閱函式 */
-export function onAuthChange(_handler: (user: AuthUser | null) => void): () => void {
-  throw new Error('T-04 未實作');
+export function onAuthChange(handler: (user: AuthUser | null) => void): () => void {
+  const { data } = db.auth.onAuthStateChange((_event, session) => {
+    // 回呼裡不可再呼叫 supabase 的非同步 API：它與內部的 session 鎖會互等而卡死。
+    // 故只從 session 取值，不在這裡補打 getUser()。
+    handler(session ? toAuthUser(session.user) : null);
+  });
+  return () => data.subscription.unsubscribe();
 }
