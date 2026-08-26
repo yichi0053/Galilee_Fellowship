@@ -28,4 +28,13 @@ Migration 檔案結構仍照 CLI 慣例置於 `supabase/migrations/`，日後安
   重設 Google provider、換 keepalive 指向的專案。任何一項漏掉的失敗模式都很安靜。
   完整切換清單見 `docs/SETUP.md` 第 7 節，上線前逐條打勾。
 
+**2026-08-27 補充**：Supabase CLI v1 的 `functions deploy` 以 Docker 打包，在本 ADR 的前提下
+不可用。CLI **v2** 改走 Management API，不需 Docker（僅印出一行 Docker 未執行的警告）。
+故 `package.json` 的 devDependency 已升至 `supabase@^2`，**不可退回 v1**，
+否則部署會再次卡在 Docker。
+
+（`gen types` 不受影響：v1 與 v2 的 `--project-id` 路徑都打雲端，本來就不需 Docker。
+真正需要 Docker 的是 `--local`，而 `npm run db:types` 原本錯用了它，已改為
+`scripts/gen-types.sh`。）
+
 **若日後安裝 Docker，本 ADR 應標記為 Superseded by ADR-0012。**

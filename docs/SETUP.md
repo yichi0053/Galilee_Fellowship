@@ -35,32 +35,141 @@ cp .env.example .env
 
 ## 2. Google OAuth client
 
+Google Cloud Console 已改版為 **Google Auth Platform**，設定拆成 Branding、Audience、
+Data Access、Clients 四個分頁。
+
 1. https://console.cloud.google.com → 建立專案（或沿用既有專案）
-2. **APIs & Services → OAuth consent screen**
-   - User Type：**External**
-   - App name、support email、developer contact 填好
-   - Scopes 只需要預設的 `email`、`profile`、`openid`
-   - 發布狀態維持 **Testing** 即可（Testing 模式上限 100 位測試使用者，本專案 24 人足夠）
-   - **注意**：Testing 模式下，每位成員的 Google 帳號都必須加入 **Test users** 清單，
-     否則登入會被拒。24 人要逐一加入。若嫌麻煩則需送審 Publishing，審核可能需數日。
-3. **APIs & Services → Credentials → Create Credentials → OAuth client ID**
+
+2. **Branding** —— 只填三格，其餘全部留白：
+
+| 欄位 | 值 |
+|---|---|
+| App name | 例如「加利利團契照片牆」，這會顯示在 Google 登入畫面上 |
+| User support email | 你的 Gmail |
+| Developer contact information | 你的 Gmail |
+| App logo | **跳過**。要顯示 logo 得先做品牌驗證，不值得為 24 人做 |
+| App domain（首頁、隱私權政策、服務條款） | **留白**。Google 只對 external **production** 應用強制要求這三個連結 |
+| Authorized domains | **留白**。填了就得到 Search Console 驗證網域擁有權，而 `supabase.co` 不是你的，驗不了 |
+
+3. **Audience** —— User type 選 **External**，發布狀態維持 **Testing**。
+   **Test users 一個都不用加**，理由見第 4 步的說明框。
+
+> **這一頁會顯示一則錯誤訊息，不要理它。**
+>
+> Publishing status 區塊會出現：
+> 「Your app's OAuth configuration is incomplete. You must enter the missing
+> information to proceed. Please visit the Branding page to finish configuring your app.」
+>
+> 這是 Google 主控台的已知 bug（[官方開發者論壇討論串](https://discuss.google.dev/t/cannot-publish-due-to-error-message-your-apps-oauth-configuration-is-incomplete-you-must-enter-the-missing-information-to-proceed-please-visit-the-branding-page-to-finish-configuring-your-app-even-though-all-required-fields-are-complete/392229)：
+> 必填欄位全部填妥、跨三個全新專案重現，刪除重建無效，至今無解）。
+> 它唯一的作用是擋住 **Publish app** —— 而你的目標狀態就是 Testing，**根本不需要發布**。
+> 只要 Publishing status 顯示 `Testing`，這一頁就算完成了。
+>
+> **千萬不要為了消掉它去填 App domain。** 一旦填入首頁／隱私權政策／服務條款連結，
+> Google 就會連帶要求 Authorized domains，而你的 redirect 是 `<ref>.supabase.co` ——
+> 那不是你的網域，Search Console 驗不了擁有權。那才是真正會卡死的死路。
+
+4. **Data Access（Scopes）** —— 只勾這三個，一個都不要多：
+
+   ```
+   .../auth/userinfo.email
+   .../auth/userinfo.profile
+   openid
+   ```
+
+> **這一步決定了整個登入體驗，不要手滑多勾。**
+>
+> Google 對「只請求 `email`、`profile`、`openid` 這三個 basic scope」的應用有明文例外
+> （[Unverified apps](https://support.google.com/cloud/answer/7454865)、
+> [Manage App Audience](https://support.google.com/cloud/answer/15549945)）：
+> 使用者**不需要在 Test users 清單裡**、**不會看到「Google 尚未驗證這個應用程式」警告頁**、
+> 授權也**不會 7 天過期**。
+>
+> 多勾任何一個 sensitive scope，這三件事全部回來 —— 24 人要逐一登記、
+> 每個人登入時看到嚇人的警告畫面、還得送審等數日。
+> 本專案只需要辨識身分，沒有理由多勾。
+
+5. **Clients → Create OAuth client**
    - Application type：**Web application**
-   - Authorized redirect URIs 先填開發專案這一條：
+   - **Authorized redirect URIs** 先填開發專案這一條：
      ```
      https://<你的-project-ref>.supabase.co/auth/v1/callback
      ```
      正式專案開好後**再回來加第二條**，不要刪掉第一條。
-4. 取得 **Client ID** 與 **Client secret**
-5. 回到 Supabase Dashboard → **Authentication → Providers → Google**
+   - **Authorized JavaScript origins**：留白。Supabase 走的是瀏覽器導向 Google、
+     Google 再導回 Supabase callback 的 server-side flow，不需要 JS origin。
+
+6. 取得 **Client ID** 與 **Client secret**
+
+7. 回到 Supabase Dashboard → **Authentication → Providers → Google**
    - 啟用，貼上 Client ID 與 Client secret
-6. **Authentication → URL Configuration**
-   - Site URL：正式站網址（例如 `https://galilee-wall.pages.dev`）
-   - Redirect URLs 加入：
+
+8. **Authentication → URL Configuration**
+
+   下文的 `<專案名>` 是你在 Cloudflare Pages 建立專案時自己取的名字（見第 3 節）。
+   **取名之前這個網址並不存在**，所以現階段先只填本機這組：
+
+   - Site URL：`http://localhost:5173`
+   - Redirect URLs：`http://localhost:5173/**`
+
+   Pages 開好、拿到真網址之後再回來改成：
+
+   - Site URL：`https://<專案名>.pages.dev`
+   - Redirect URLs（三條都要留著）：
      ```
      http://localhost:5173/**
-     https://galilee-wall.pages.dev/**
+     https://<專案名>.pages.dev/**
+     https://*.<專案名>.pages.dev/**
      ```
-   - 少了 `localhost` 這條，本機開發時 OAuth 會導向線上站台
+
+   三個容易踩的地方：
+
+   - 少了 `localhost` 這條，本機開發時 OAuth 會導向線上站台。**改成正式網址時不要刪掉它。**
+   - 第三條是 Pages 的預覽部署（網址形如 `<branch>.<專案名>.pages.dev`，
+     與正式站不同子網域）。不加的話預覽站打得開但登不了。
+   - `5173` 是 Vite 預設埠。被佔用時 Vite 會**安靜地**改用 5174，
+     OAuth 就會因為對不上而失敗，且錯誤訊息看不出原因。
+     要根絕就在 `vite.config.ts` 加 `server: { port: 5173, strictPort: true }`。
+
+9. **實測驗證 —— 這步不能跳**
+
+   不需要任何程式碼。T-04（`src/modules/auth/`）還沒實作也能測，
+   因為 Supabase 的 auth endpoint 自己會把整套流程跑完。
+   直接在瀏覽器開：
+
+   ```
+   https://<你的-project-ref>.supabase.co/auth/v1/authorize?provider=google&redirect_to=http://localhost:5173
+   ```
+
+   用一個**沒有加進任何清單**的 Google 帳號開，確認三件事：
+
+   | 檢查項 | 期望 |
+   |---|---|
+   | 授權畫面 | **不出現**「Google 尚未驗證這個應用程式」警告頁 |
+   | 帳號 | 直接進到選帳號／同意畫面，不被拒絕 |
+   | 導回的網址列 | `http://localhost:5173/` 且後面帶 `#access_token=` |
+
+   先開著 `npm run dev` 會比較好看，但**不開也算成功** —— 要看的是網址列有沒有
+   `#access_token=`，那代表 Google ↔ Supabase 的握手打通了。
+   導回後頁面顯示「載入中…」是正常的：那是 `index.html` 的靜態佔位文字，
+   `src/ui/pages/index.ts` 要到階段五才實作。
+
+   若警告頁真的出現，回頭檢查 Data Access 是不是混進了第四個 scope。
+
+   > **開發專案已於 2026-08-27 實測通過**：非清單帳號可登入、無警告頁、
+   > token payload 含 `email`、`email_verified`、`full_name`、`picture`。
+   > 第 4 步的 basic scopes 例外確認成立。
+   > **正式專案上線時要再測一次**（見第 7 節）—— 兩個專案的 Auth 設定不共用。
+
+> **導回的網址列裡是活的憑證，不要外流。** `#access_token=` 是有效的 session JWT
+> （約 1 小時），後面的 `refresh_token` **不會自己過期**，拿到的人可以無限期換新 token。
+> 不要截圖、貼進聊天室或 issue。真的外流了：Supabase Dashboard →
+> Authentication → Users 刪掉該筆 user（作廢 refresh token），
+> 再到 https://myaccount.google.com/permissions 移除本 app 的存取權（作廢 `provider_token`）。
+
+> 登入畫面會顯示「繼續前往 `<你的-project-ref>.supabase.co`」而不是你的站名。
+> 這是 Supabase 免費方案的固定行為（換成自訂網域要付費），無法消除。
+> 建議在加入流程的說明或 LINE 公告裡先講一句，免得成員以為是釣魚網站。
 
 ---
 
@@ -68,6 +177,20 @@ cp .env.example .env
 
 1. https://dash.cloudflare.com → **Workers & Pages → Create → Pages**
 2. 連接 git repo（或先用 **Direct Upload** 手動上傳 `dist/`）
+
+> **站台網址在這一步定案。** 你輸入的專案名稱直接決定網址 —— 取名 `galilee-fellowship`
+> 就得到 `https://galilee-fellowship.pages.dev`。
+>
+> 名稱拿去當子網域，所以受 DNS 規則限制：**只允許小寫字母、數字、連字號**，
+> 1 至 58 字元，頭尾不能是連字號。**大寫與底線都會被退回** ——
+> `Galilee_Fellowship` 不合法，`galilee-fellowship` 才可以。
+> 用「連接 git repo」建立時 Cloudflare 會拿 repo 名稱當預設值並自動正規化，
+> 但那一格可以編輯，**自己打上去**，不要賭它轉出來的結果跟你想的一樣。
+>
+> 名稱在 `pages.dev` 底下全球唯一，被別人佔走就得換一個（例如加上 `-wall`）。
+> 所以**在這裡按下建立、確認名字真的到手之前，第 2 節第 8 步的正式網址無從填起**。
+> 定案後記得回第 2 節把 Supabase 的 Site URL 與 Redirect URLs 補上。
+
 3. 建置設定：
 
 | 欄位 | 值 |
@@ -145,8 +268,11 @@ select id, name from rooms;
 6. 正式專案的 **Authentication → Providers → Google** 也要貼一次 Client ID 與 secret。
    這是最容易漏的一步：兩個專案各有各的 Auth 設定，不會自動同步。
 7. 正式專案的 **Authentication → URL Configuration** 填正式網址。
-8. 部署 Edge Function 到正式專案：
-   `npx supabase functions deploy join-room --project-ref <prod-ref>`
+8. 部署 Edge Function 到正式專案（**需要 CLI v2**，v1 會要求 Docker）：
+   `npx supabase functions deploy join-room --project-ref <prod-ref> --no-verify-jwt`
+   並設定該專案的 `ROOM_ID` secret（見第 3 步）。
+   `--no-verify-jwt` 的理由寫在 `supabase/config.toml`——把關在 function 內部，
+   關掉平台層的檢查是為了讓 CORS preflight 能通過。
 9. GitHub secrets 的 `SUPABASE_URL` / `SUPABASE_ANON_KEY` 換成正式專案，
    否則 keepalive 會一直 ping 開發專案，而**正式專案在第 7 天安靜暫停**。
 10. 最後跑一次 `npm run verify:rls` 指向正式專案，確認全綠，

@@ -1,0 +1,20 @@
+# Supabase CLI 設定。
+#
+# ADR-0017：開發機無 Docker，不使用 supabase start / db reset 等本機功能，
+# 故本檔只保留「部署 Edge Function」所需的最小設定，不是 supabase init 的完整產物。
+#
+# project_id 是 CLI 的本機識別字串（用於容器命名），與雲端 project ref 無關；
+# 雲端目標一律由指令的 --project-ref 明確指定，避免誤推到錯的專案。
+project_id = "galilee-fellowship-wall"
+
+# verify_jwt = false 不等於「不驗身分」。
+#
+# 平台層的 verify_jwt 只確認 JWT 由本專案簽發——而 anon key 本身就是一枚合法 JWT
+# 且必然外流至瀏覽器（ADR-0001），所以它擋不住任何人，實質保護趨近於零。
+# 真正的把關在 function 內部：它以呼叫者的 Authorization header 建 client 並呼叫
+# getUser()，取不到 user 就回 401（已冒煙測試確認）。
+#
+# 關掉它換到的是可靠的 CORS preflight：OPTIONS 不帶 Authorization，
+# 開著 verify_jwt 時會在瀏覽器送出正式請求之前就被平台擋掉。
+[functions.join-room]
+verify_jwt = false
