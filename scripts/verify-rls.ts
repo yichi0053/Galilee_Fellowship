@@ -211,6 +211,7 @@ async function main(): Promise<void> {
   const guest: Identity = { label: 'anon', token: null };
   const asA: Identity = { label: 'member A', token: memberA.token };
   const asSuspended: Identity = { label: 'suspended', token: suspended.token };
+  const asLeft: Identity = { label: 'left', token: leftUser.token };
   const asAdmin: Identity = { label: 'admin', token: adminUser.token };
 
   try {
@@ -279,6 +280,63 @@ async function main(): Promise<void> {
       `status=${rSelfLeave.status} rows=${rows(rSelfLeave).length}`);
 
     console.log('\n補充檢查');
+
+    // migration 006：訪客看得到主題標題，但仍不得直接讀 themes 本表。
+    const rThemePub = await rest(guest, 'themes_public?select=title&limit=1');
+    check('訪客讀得到 themes_public（否則牆頁只會說「本週還沒有主題」而其實有）',
+      rThemePub.status === 200 && rows(rThemePub).length === 1,
+      `status=${rThemePub.status} rows=${rows(rThemePub).length}`);
+
+    const rThemeRaw = await rest(guest, 'themes?select=title');
+    check('訪客仍讀不到 themes 本表（006 只開 view，沒有動 RLS）',
+      deniedOrEmpty(rThemeRaw), `status=${rThemeRaw.status} rows=${rows(rThemeRaw).length}`);
+
+    // migration 007：soft_delete_post 是 security definer，會繞過 RLS，
+    // 故它自己的授權判斷就是唯一防線，這三項專門打它。
+    const victim = await createPost(memberB.memberId, '成員 B 的貼文，用來測試越權刪除。');
+    const rStealDelete = await rest(asA, 'rpc/soft_delete_post', {
+      method: 'POST',
+      body: JSON.stringify({ p_id: victim }),
+    });
+    check('成員 A 無法以 RPC 刪除成員 B 的貼文（007 的 definer 函式自己把關）',
+      rStealDelete.status >= 400, `status=${rStealDelete.status}`);
+
+    const mine = await createPost(memberA.memberId, '成員 A 的貼文，用來測試回補期內刪除。');
+    const rSelfDelete = await rest(asA, 'rpc/soft_delete_post', {
+      method: 'POST',
+      body: JSON.stringify({ p_id: mine }),
+    });
+    check('作者刪得掉自己的貼文',
+      rSelfDelete.status >= 200 && rSelfDelete.status < 300, `status=${rSelfDelete.status}`);
+
+    const rAfter = await admin(
+      `/rest/v1/posts?id=eq.${mine}&select=deleted_at,counts_toward_quota`,
+    );
+    const deleted = rows(rAfter)[0] as
+      | { deleted_at: string | null; counts_toward_quota: boolean }
+      | undefined;
+    check('回補期內刪除會把 counts_toward_quota 設為 false（ADR-0010）',
+      deleted?.deleted_at !== null && deleted?.counts_toward_quota === false,
+      JSON.stringify(deleted));
+
+    // migration 005：§10.4 的 Viewer 判定必須能區分 orphan / suspended / left。
+    // 001 的 members_select 是 is_active_member()，後兩者讀不到自己的列，
+    // 在前端與「尚未加入」無從區分。005 放行自己那一列，這三項確認它有效且沒有擴權。
+    const rSelfS = await rest(asSuspended, `room_members?select=status&user_id=eq.${suspended.userId}`);
+    check('suspended 讀得到自己的 room_members 列（否則前端誤判為 orphan）',
+      rSelfS.status === 200 && rows(rSelfS).length === 1,
+      `status=${rSelfS.status} rows=${rows(rSelfS).length}`);
+
+    const rSelfL = await rest(asLeft, `room_members?select=status&user_id=eq.${leftUser.userId}`);
+    check('left 讀得到自己的 room_members 列（否則前端誤判為 orphan）',
+      rSelfL.status === 200 && rows(rSelfL).length === 1,
+      `status=${rSelfL.status} rows=${rows(rSelfL).length}`);
+
+    // 005 只該放行「自己那一列」。若寫成放行整表，這一項會抓到。
+    const rOthers = await rest(asSuspended, 'room_members?select=id');
+    check('suspended 仍讀不到其他成員的列（確認 005 沒有擴權）',
+      rOthers.status === 200 && rows(rOthers).length === 1,
+      `status=${rOthers.status} rows=${rows(rOthers).length}`);
 
     const rA = await rest(asAdmin, 'rooms?select=join_code');
     check('管理員讀得到 join_code（否則後台無法顯示房間碼）',
