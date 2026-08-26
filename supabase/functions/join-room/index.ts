@@ -19,16 +19,40 @@ const ATTEMPTS_PER_IP_PER_HOUR = 20; // §8.3
 const LOCKOUT_SECONDS = 3600;
 const DISPLAY_NAME_MAX = 20;
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type, apikey',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+/**
+ * Allow-Headers 回送瀏覽器問的那一組，而不是維護一份寫死的清單。
+ *
+ * supabase-js 會隨版本增減自己的標頭（x-client-info、x-supabase-api-version……），
+ * 寫死的清單遲早漏掉其中一個。漏掉的失敗模式特別惡劣：preflight 仍然回 200，
+ * 瀏覽器卻因為缺少該標頭而靜靜擋下正式請求，前端只看到
+ * 「Failed to send a request to the Edge Function」——那是 fetch 沒送出去，
+ * 不是伺服器回了錯誤，所以伺服器端的 log 什麼都沒有。
+ *
+ * 而且 curl 不執行 CORS，用 curl 測 preflight 一定會過，測不出這個問題。
+ *
+ * Allow-Origin 為 *，非 credentials 模式，故回送請求端的標頭清單不擴大任何權限；
+ * 真正的把關是本函式自己的 getUser()。
+ */
+function cors(req: Request): Record<string, string> {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers':
+      req.headers.get('Access-Control-Request-Headers') ?? 'authorization, content-type, apikey',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    // 一天內不必為每個請求各跑一次 preflight（§9.4）
+    'Access-Control-Max-Age': '86400',
+  };
+}
 
-function json(body: unknown, status = 200, extra: Record<string, string> = {}): Response {
+function json(
+  req: Request,
+  body: unknown,
+  status = 200,
+  extra: Record<string, string> = {},
+): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...CORS, ...extra, 'Content-Type': 'application/json' },
+    headers: { ...cors(req), ...extra, 'Content-Type': 'application/json' },
   });
 }
 
@@ -55,8 +79,8 @@ function clientIp(req: Request): string | null {
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
-  if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors(req) });
+  if (req.method !== 'POST') return json(req, { error: 'method_not_allowed' }, 405);
 
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
   const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -70,7 +94,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   });
   const { data: userData } = await asUser.auth.getUser();
   const user = userData?.user;
-  if (!user) return json({ error: 'unauthenticated' }, 401);
+  if (!user) return json(req, { error: 'unauthenticated' }, 401);
 
   // service role client：以下所有資料庫操作都繞過 RLS，因此每一步都要自己把關。
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
@@ -89,11 +113,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .maybeSingle();
 
   if (existing && existing.status === 'active') {
-    return json({ ok: true, alreadyMember: true, member: existing });
+    return json(req, { ok: true, alreadyMember: true, member: existing });
   }
   if (existing && existing.status === 'suspended') {
     // 停權者不得用房間碼繞回來
-    return json({ error: 'suspended' }, 403);
+    return json(req, { error: 'suspended' }, 403);
   }
 
   // ---- 3. Rate limit ----
@@ -107,7 +131,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .gte('created_at', since);
 
   if ((userFailures ?? 0) >= FAILURES_PER_USER_PER_HOUR) {
-    return json({ error: 'rate_limited', retryAfterSeconds: LOCKOUT_SECONDS }, 429, {
+    return json(req, { error: 'rate_limited', retryAfterSeconds: LOCKOUT_SECONDS }, 429, {
       'Retry-After': String(LOCKOUT_SECONDS),
     });
   }
@@ -122,7 +146,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // IP 維度算的是全部嘗試而非只有失敗：同一個 IP 底下有整棟宿舍的情況，
     // 20 次/小時對 24 人的加入期而言仍然寬鬆。
     if ((ipAttempts ?? 0) >= ATTEMPTS_PER_IP_PER_HOUR) {
-      return json({ error: 'rate_limited', retryAfterSeconds: LOCKOUT_SECONDS }, 429, {
+      return json(req, { error: 'rate_limited', retryAfterSeconds: LOCKOUT_SECONDS }, 429, {
         'Retry-After': String(LOCKOUT_SECONDS),
       });
     }
@@ -133,14 +157,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
   try {
     body = await req.json();
   } catch {
-    return json({ error: 'bad_request' }, 400);
+    return json(req, { error: 'bad_request' }, 400);
   }
 
   const joinCode = typeof body.joinCode === 'string' ? body.joinCode.trim() : '';
   const displayName = typeof body.displayName === 'string' ? body.displayName.trim() : '';
 
   if (!displayName || displayName.length > DISPLAY_NAME_MAX) {
-    return json({ error: 'invalid_display_name', maxLength: DISPLAY_NAME_MAX }, 400);
+    return json(req, { error: 'invalid_display_name', maxLength: DISPLAY_NAME_MAX }, 400);
   }
 
   const record = async (success: boolean): Promise<void> => {
@@ -161,20 +185,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   if (!room) {
     await record(false);
-    return json({ error: 'invalid_code' }, 403);
+    return json(req, { error: 'invalid_code' }, 403);
   }
 
   if (!room.join_open) {
     // §8.4：24 人到齊後管理員關閉加入，此後房間碼失效。
     // 這是成本最低而效果最好的防護。
     await record(false);
-    return json({ error: 'join_closed' }, 403);
+    return json(req, { error: 'join_closed' }, 403);
   }
 
   if (!timingSafeEqual(joinCode, room.join_code)) {
     await record(false);
     // 不透露是房間碼錯還是房間不存在
-    return json({ error: 'invalid_code' }, 403);
+    return json(req, { error: 'invalid_code' }, 403);
   }
 
   // ---- 6. 建立或恢復成員 ----
@@ -200,9 +224,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   if (error) {
     await record(false);
-    return json({ error: 'join_failed', detail: error.message }, 500);
+    return json(req, { error: 'join_failed', detail: error.message }, 500);
   }
 
   await record(true);
-  return json({ ok: true, alreadyMember: false, member });
+  return json(req, { ok: true, alreadyMember: false, member });
 });
