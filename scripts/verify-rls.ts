@@ -268,6 +268,16 @@ async function main(): Promise<void> {
       bodies.some((b) => b.includes('退出成員')),
       JSON.stringify(bodies));
 
+    // 退出由管理員在後台代為標記（admin.markMemberLeft），成員自己改不動。
+    const rSelfLeave = await rest(asA, `room_members?id=eq.${memberA.memberId}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ status: 'left' }),
+    });
+    check('成員無法自行把 status 改為 left（第一期由管理員代為標記）',
+      rSelfLeave.status === 403 || rSelfLeave.status === 401 || rows(rSelfLeave).length === 0,
+      `status=${rSelfLeave.status} rows=${rows(rSelfLeave).length}`);
+
     console.log('\n補充檢查');
 
     const rA = await rest(asAdmin, 'rooms?select=join_code');

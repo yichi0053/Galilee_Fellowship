@@ -53,6 +53,23 @@ export async function reinstateMember(_memberId: string): Promise<void> {
   throw new Error('T-10 未實作');
 }
 
+/**
+ * 代為標記某位成員為「已退出」（status = 'left'）。
+ *
+ * 第一期沒有讓成員自行退出的頁面：§10.1 的頁面清單裡沒有，
+ * 而 members_update policy 是管理員限定，成員改不了自己的 status。
+ * 想退出的人私訊管理員，由管理員在成員管理分頁按這顆按鈕。
+ *
+ * 與 suspendMember 的差別是貼文的處置，這是 §4.3 最容易寫反的一組：
+ *   left      → 貼文**保留顯示**，作者名稱維持原樣
+ *   suspended → 貼文**一律隱藏**
+ * posts_public 的 where 條件只排除 suspended，所以資料庫那邊已經是對的；
+ * 這裡要小心的是別把兩顆按鈕接反。
+ */
+export async function markMemberLeft(_memberId: string): Promise<void> {
+  throw new Error('T-10 未實作');
+}
+
 export async function listJoinAttempts(): Promise<ReadonlyArray<JoinAttempt>> {
   throw new Error('T-10 未實作');
 }
