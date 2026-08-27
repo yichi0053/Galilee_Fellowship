@@ -19,7 +19,13 @@ const mocks = vi.hoisted(() => ({
   listWeek: vi.fn(),
   listWeeks: vi.fn(),
   getThemeForWeek: vi.fn(),
+  signOut: vi.fn(),
 }));
+
+// auth 一定要 mock：牆頁為了登出而 import 它，而它會拉進真正的 supabase client。
+// 少了這一行，整個檔案會以「Node.js detected but native WebSocket not found」倒掉，
+// 而那個訊息完全看不出跟牆頁有什麼關係。
+vi.mock('@modules/auth', () => ({ signOut: mocks.signOut }));
 
 vi.mock('@modules/membership', () => ({
   getViewer: mocks.getViewer,
@@ -29,7 +35,7 @@ vi.mock('@modules/membership', () => ({
 vi.mock('@modules/posts', () => ({ listWeek: mocks.listWeek, listWeeks: mocks.listWeeks }));
 vi.mock('@modules/themes', () => ({ getThemeForWeek: mocks.getThemeForWeek }));
 
-const MEMBER: Viewer = { kind: 'member', memberId: 'm-1', displayName: '陳小明' };
+const MEMBER: Viewer = { kind: 'member', memberId: 'm-1', displayName: '陳小明', avatarUrl: null };
 const GUEST: Viewer = { kind: 'guest' };
 
 function makePost(index: number, week: WeekStart, refundable: boolean): Post {
@@ -308,5 +314,46 @@ describe('頂部只有週次選擇器釘在頂端（§10.2）', () => {
     const app = await renderWall();
     expect(app.querySelector('.wall-nav')).not.toBeNull();
     expect(app.querySelector('.theme-banner')).not.toBeNull();
+  });
+});
+
+describe('右上角的大頭貼選單（§10.2 / ADR-0011）', () => {
+  it('成員看到大頭貼選單，不再是寫死的「我的貼文」連結', async () => {
+    const app = await renderWall();
+    expect(app.querySelector('.user-menu')).not.toBeNull();
+    expect(app.querySelector('.wall-nav__link')).toBeNull();
+  });
+
+  it('管理員的清單多一條後台入口', async () => {
+    const app = await renderWall({
+      kind: 'admin',
+      memberId: 'm-1',
+      displayName: '林大方',
+      avatarUrl: null,
+    });
+    expect(app.querySelector('.user-menu a[href="/admin"]')).not.toBeNull();
+  });
+
+  it('訪客沒有帳號，右上角維持加入引導（§10.3）', async () => {
+    const app = await renderWall(GUEST);
+    expect(app.querySelector('.user-menu')).toBeNull();
+    expect(app.querySelector<HTMLAnchorElement>('.wall-nav__link')?.getAttribute('href')).toBe(
+      '/join',
+    );
+  });
+});
+
+describe('卡片直接連往貼文頁，沒有中間的放大檢視層', () => {
+  it('每張卡片都是連往 /post/:id 的連結', async () => {
+    const app = await renderWall();
+    const cards = app.querySelectorAll<HTMLAnchorElement>('a.polaroid');
+    expect(cards.length).toBeGreaterThan(0);
+    for (const card of cards) expect(card.getAttribute('href')).toMatch(/^\/post\//);
+  });
+
+  it('頁面上不存在 lightbox', async () => {
+    const app = await renderWall();
+    expect(document.querySelector('.lightbox')).toBeNull();
+    expect(app.querySelector('dialog')).toBeNull();
   });
 });

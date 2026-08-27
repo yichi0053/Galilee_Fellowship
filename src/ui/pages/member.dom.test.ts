@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@modules/membership', () => ({ getViewer: mocks.getViewer }));
 vi.mock('@modules/posts', () => ({ listMine: mocks.listMine, getMyQuota: mocks.getMyQuota }));
 
-const MEMBER: Viewer = { kind: 'member', memberId: 'm-1', displayName: '陳小明' };
+const MEMBER: Viewer = { kind: 'member', memberId: 'm-1', displayName: '陳小明', avatarUrl: null };
 
 function makePost(i: number, over: Partial<Post> = {}): Post {
   return {

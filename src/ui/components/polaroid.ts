@@ -16,7 +16,6 @@ const timeFormat = new Intl.DateTimeFormat('zh-TW', {
 });
 
 export type PolaroidOptions = {
-  onOpen: (post: Post) => void;
   /** 顯示 10 分鐘回補倒數（§9.1：不顯示的話使用者不會知道有這個規則） */
   refundCountdown?: boolean;
 };
@@ -58,9 +57,12 @@ function applyRatio(img: HTMLImageElement, card: HTMLElement): void {
   card.style.setProperty('--ratio', String(ratio));
 }
 
-export function polaroidCard(post: Post, options: PolaroidOptions): HTMLElement {
-  const card = document.createElement('button');
-  card.type = 'button';
+export function polaroidCard(post: Post, options: PolaroidOptions = {}): HTMLElement {
+  // **是 <a> 而不是 <button>。** 點卡片就是換頁到 /post/:id，那是導覽而非動作：
+  // 用連結才有長按開新分頁、中鍵、複製網址這些瀏覽器內建行為，
+  // 也不需要 JS 就能運作。先前那一層放大檢視的 lightbox 已經移除。
+  const card = document.createElement('a');
+  card.href = `/post/${post.id}`;
   card.className = 'polaroid';
   card.style.setProperty('--rot', `${post.rotationDeg}deg`);
   card.dataset['postId'] = post.id;
@@ -138,7 +140,6 @@ export function polaroidCard(post: Post, options: PolaroidOptions): HTMLElement 
     card.addEventListener('polaroid:dispose', () => window.clearInterval(timer));
   }
 
-  card.addEventListener('click', () => options.onOpen(post));
   return card;
 }
 

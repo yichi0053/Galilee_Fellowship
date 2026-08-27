@@ -20,7 +20,7 @@
 | [0013](0013-phased-feature-release.md) | 分期釋出功能作為維持參與度的手段 | 使用者需經歷多次新功能說明 |
 | [0014](0014-single-admin.md) | 單一管理員 | 單點失效，需開發者作為復原路徑 |
 | [0015](0015-quota-3-per-week.md) | 每人每週 1 主題加 2 自由，合計 3 篇 | 儲存餘裕由三分之二降至一半 |
-| [0016](0016-frontend-stack.md) | 前端採 Vite + TypeScript + 原生 DOM | masonry/lightbox/捲動收合全部自寫 |
+| [0016](0016-frontend-stack.md) | 前端採 Vite + TypeScript + 原生 DOM | masonry/下拉選單/表單狀態全部自寫 |
 | [0017](0017-no-docker-local-dev.md) | 開發機無 Docker，改用第二個 cloud project | 無法離線開發；pgTAP 不可用 |
 | [0018](0018-single-project-promoted-to-production.md) | 現有 Supabase 專案直接轉正，不另開正式專案 | 沒有可以弄壞的環境；verify:rls 停用 |
 | [0019](0019-title-and-body.md) | 貼文拆成標題與內文，牆頁只顯示標題 | 牆上讀不到內文，需逐則點入 |

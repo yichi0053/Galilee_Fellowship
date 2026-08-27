@@ -36,8 +36,8 @@ beforeEach(() => {
 describe('/ —— 依身分導流', () => {
   const toWall: readonly Viewer[] = [
     { kind: 'guest' },
-    { kind: 'member', memberId: 'm-1', displayName: '陳小明' },
-    { kind: 'admin', memberId: 'm-2', displayName: '林大方' },
+    { kind: 'member', memberId: 'm-1', displayName: '陳小明', avatarUrl: null },
+    { kind: 'admin', memberId: 'm-2', displayName: '林大方', avatarUrl: null },
   ];
 
   for (const viewer of toWall) {

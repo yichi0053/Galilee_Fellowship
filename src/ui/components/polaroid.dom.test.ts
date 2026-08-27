@@ -5,7 +5,7 @@
  * 縮圖的淡入——樣式讓 .polaroid__img 從 opacity: 0 開始，所以任何一條
  * 沒把 data-loaded 掛上的路徑，畫面上都會是一塊永遠的灰底。
  */
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { Post, PostId } from '@modules/posts';
 import { polaroidCard } from './polaroid';
 
@@ -29,7 +29,7 @@ function makePost(over: Partial<Post> = {}): Post {
 }
 
 function cardWithImage(): { card: HTMLElement; img: HTMLImageElement } {
-  const card = polaroidCard(makePost(), { onOpen: vi.fn() });
+  const card = polaroidCard(makePost());
   const img = card.querySelector<HTMLImageElement>('.polaroid__img');
   if (!img) throw new Error('卡片裡沒有縮圖');
   return { card, img };
@@ -58,7 +58,7 @@ describe('polaroid 縮圖淡入', () => {
 
 describe('polaroid 旋轉角', () => {
   it('來自 posts.rotation_deg 而非每次重擲（§11.2）', () => {
-    const card = polaroidCard(makePost({ rotationDeg: -3 }), { onOpen: vi.fn() });
+    const card = polaroidCard(makePost({ rotationDeg: -3 }));
     expect(card.style.getPropertyValue('--rot')).toBe('-3deg');
   });
 });
@@ -108,19 +108,32 @@ describe('polaroid 卡片上的文字（ADR-0019）', () => {
   it('顯示標題而不是內文——內文在 /post/:id', () => {
     const card = polaroidCard(
       { ...makePost(), title: '今天的晚餐', body: '跟小組一起吃的，很久沒這麼熱鬧。' },
-      { onOpen: vi.fn() },
     );
     expect(card.querySelector('.polaroid__title')?.textContent).toBe('今天的晚餐');
     expect(card.textContent).not.toContain('很久沒這麼熱鬧');
   });
 
   it('alt 用標題：讀螢幕軟體在牆上逐張唸 300 字內文會讓人放棄', () => {
-    const card = polaroidCard({ ...makePost(), title: '今天的晚餐' }, { onOpen: vi.fn() });
+    const card = polaroidCard({ ...makePost(), title: '今天的晚餐' });
     expect(card.querySelector<HTMLImageElement>('.polaroid__img')?.alt).toBe('今天的晚餐');
   });
 
   it('沒有內文的貼文照樣畫得出來', () => {
-    const card = polaroidCard({ ...makePost(), body: null }, { onOpen: vi.fn() });
+    const card = polaroidCard({ ...makePost(), body: null });
     expect(card.querySelector('.polaroid__title')?.textContent).toBe('測試標題');
+  });
+});
+
+describe('polaroid 是連結而不是按鈕', () => {
+  it('卡片本身就連往 /post/:id，不經過中間的放大檢視層', () => {
+    const card = polaroidCard(makePost({ id: 'abc123' as PostId }));
+    expect(card.tagName).toBe('A');
+    expect(card.getAttribute('href')).toBe('/post/abc123');
+  });
+
+  it('用連結而非按鈕，長按開新分頁與複製網址才會有作用', () => {
+    const card = polaroidCard(makePost());
+    // <button> 沒有 href，這一條就是在守住「不要改回按鈕」。
+    expect(card).toBeInstanceOf(HTMLAnchorElement);
   });
 });

@@ -31,7 +31,7 @@ vi.mock('@modules/themes', () => ({
   scheduleThemes: mocks.scheduleThemes,
 }));
 
-const ADMIN: Viewer = { kind: 'admin', memberId: 'm-9', displayName: '負責人' };
+const ADMIN: Viewer = { kind: 'admin', memberId: 'm-9', displayName: '負責人', avatarUrl: null };
 const ROOM: RoomSettings = {
   name: '加利利團契',
   description: '一起把這學期的樣子貼在牆上。',
@@ -94,7 +94,7 @@ beforeEach(() => vi.clearAllMocks());
 
 describe('/admin 的存取', () => {
   it('一般成員看不到後台，也不會去查任何管理資料', async () => {
-    const app = await render({ viewer: { kind: 'member', memberId: 'm-1', displayName: '陳小明' } });
+    const app = await render({ viewer: { kind: 'member', memberId: 'm-1', displayName: '陳小明', avatarUrl: null } });
     expect(app.querySelector('.admin-tabs')).toBeNull();
     expect(mocks.listMembers).not.toHaveBeenCalled();
     expect(app.querySelector('.paper-card__title')?.textContent).toBe('只有管理員看得到這一頁');

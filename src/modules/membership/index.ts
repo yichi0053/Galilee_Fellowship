@@ -18,9 +18,20 @@ export type Viewer =
   /** 已登入但不在 room_members 中，須導向 /join 接續加入流程 */
   | { readonly kind: 'orphan'; readonly suggestedName: string | null }
   /** active 成員 */
-  | { readonly kind: 'member'; readonly memberId: string; readonly displayName: string }
+  | {
+      readonly kind: 'member';
+      readonly memberId: string;
+      readonly displayName: string;
+      /** Google 頭像，載不到或沒有時為 null，UI 退回姓名首字 */
+      readonly avatarUrl: string | null;
+    }
   /** active 且 role = admin。管理員繼承成員的全部權限（§4.1） */
-  | { readonly kind: 'admin'; readonly memberId: string; readonly displayName: string }
+  | {
+      readonly kind: 'admin';
+      readonly memberId: string;
+      readonly displayName: string;
+      readonly avatarUrl: string | null;
+    }
   /** 已被停權，其貼文一律隱藏（§4.3） */
   | { readonly kind: 'suspended' }
   /** 自願退出，其貼文保留顯示（§4.3） */
@@ -59,10 +70,18 @@ export async function getViewer(): Promise<Viewer> {
       return { kind: 'suspended' };
     case 'left':
       return { kind: 'left' };
-    case 'active':
+    case 'active': {
+      // 頭像來自 auth 而非 room_members：顯示姓名是成員自填的（可能與 Google 不同），
+      // 頭像則一律跟著 Google 帳號走，我們不存也不管理它。
+      const common = {
+        memberId: data.id,
+        displayName: data.display_name,
+        avatarUrl: user.avatarUrl,
+      } as const;
       return data.role === 'admin'
-        ? { kind: 'admin', memberId: data.id, displayName: data.display_name }
-        : { kind: 'member', memberId: data.id, displayName: data.display_name };
+        ? { kind: 'admin', ...common }
+        : { kind: 'member', ...common };
+    }
   }
 }
 
@@ -119,9 +138,15 @@ export async function joinRoom(joinCode: string, displayName: string): Promise<V
 
   // role/status 是 DB row 的欄位名，在此轉為 domain type，不讓它跨出模組（§12.4 規則 3）。
   const m = data.member;
-  return m.role === 'admin'
-    ? { kind: 'admin', memberId: m.id, displayName: m.display_name }
-    : { kind: 'member', memberId: m.id, displayName: m.display_name };
+  // 剛加入完，頭像從目前的 auth session 取；取不到就先留 null，
+  // 下次 getViewer() 會補上（UI 本來就要能處理 null）。
+  const authUser = await getCurrentUser();
+  const common = {
+    memberId: m.id,
+    displayName: m.display_name,
+    avatarUrl: authUser?.avatarUrl ?? null,
+  } as const;
+  return m.role === 'admin' ? { kind: 'admin', ...common } : { kind: 'member', ...common };
 }
 
 // ---- join-room Edge Function 的回應契約（supabase/functions/join-room/index.ts）----

@@ -13,6 +13,15 @@ export type AuthUser = {
   readonly email: string | null;
   /** Google 提供的名稱，僅作為加入流程中顯示姓名欄位的預設值 */
   readonly suggestedName: string | null;
+  /**
+   * Google 提供的頭像網址（§10.2 的導覽列選單）。
+   *
+   * 這是 lh3.googleusercontent.com 上的第三方資源，不存進我們的資料庫——
+   * 存了就得處理它過期、使用者換頭像、以及「已退出的人的臉還留著」這些問題。
+   * 每個人只會在自己的畫面上看到自己的頭像，不會洩漏其他成員的任何東西。
+   * 載不到時 UI 退回姓名首字，故此處為 null 是正常狀態而非錯誤。
+   */
+  readonly avatarUrl: string | null;
 };
 
 /**
@@ -23,10 +32,13 @@ function toAuthUser(user: User): AuthUser {
   const meta: Record<string, unknown> = user.user_metadata;
   // Google 兩個欄位都給，取到哪個都可以；缺了就讓使用者自己填。
   const name = meta['full_name'] ?? meta['name'];
+  // Google 兩個頭像欄位也都給，取到哪個都可以。
+  const avatar = meta['avatar_url'] ?? meta['picture'];
   return {
     id: user.id,
     email: user.email ?? null,
     suggestedName: typeof name === 'string' && name.length > 0 ? name : null,
+    avatarUrl: typeof avatar === 'string' && avatar.length > 0 ? avatar : null,
   };
 }
 

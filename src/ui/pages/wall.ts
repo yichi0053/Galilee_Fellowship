@@ -16,13 +16,15 @@ import '@ui/styles/wall.css';
 
 import { parseWeekStart, shiftWeeks, weeksBetween, weekStartOf } from '@domain/week';
 import type { WeekStart } from '@domain/week';
+import { signOut } from '@modules/auth';
 import { canPost, getViewer } from '@modules/membership';
+import type { Viewer } from '@modules/membership';
 import { listWeek, listWeeks } from '@modules/posts';
 import type { Post } from '@modules/posts';
 import { getThemeForWeek } from '@modules/themes';
 import type { Theme } from '@modules/themes';
-import { createLightbox } from '@ui/components/lightbox';
 import { disposeCards, observeEntrance, polaroidCard } from '@ui/components/polaroid';
+import { userMenu } from '@ui/components/user-menu';
 import { wallHeader } from '@ui/components/wall-header';
 import type { WeekOption } from '@ui/components/wall-header';
 
@@ -63,7 +65,6 @@ function renderWeekSection(
   posts: readonly Post[],
   theme: Theme | null,
   mode: Mode,
-  onOpen: (posts: readonly Post[], index: number) => void,
 ): HTMLElement {
   const section = document.createElement('section');
   section.className = 'week-section';
@@ -93,30 +94,37 @@ function renderWeekSection(
 
   const grid = document.createElement('div');
   grid.className = 'masonry';
-  posts.forEach((post, index) => {
-    grid.append(
-      polaroidCard(post, {
-        onOpen: () => onOpen(posts, index),
-        // 訪客看不到倒數：那是給作者本人的資訊
-        refundCountdown: mode === 'member',
-      }),
-    );
-  });
+  for (const post of posts) {
+    // 卡片本身就是連往 /post/:id 的連結（polaroid.ts），這裡不需要點擊處理。
+    // 訪客看不到回補倒數：那是給作者本人的資訊。
+    grid.append(polaroidCard(post, { refundCountdown: mode === 'member' }));
+  }
   section.append(grid);
   return section;
 }
 
-function navActions(mode: Mode): HTMLElement[] {
+function navActions(viewer: Viewer): HTMLElement[] {
+  // 成員與管理員看到的是大頭貼選單（功能清單在 user-menu.ts）；
+  // 訪客沒有帳號，右上角維持一條加入引導（§10.3）。
+  if (viewer.kind === 'member' || viewer.kind === 'admin') {
+    return [
+      userMenu({
+        viewer,
+        onSignOut: () => {
+          void signOut()
+            // 登出後回牆頁而不是留在原地：原地的畫面還畫著成員視角的東西
+            // （回補倒數、發文鈕），重新載入才會換成訪客視角。
+            .then(() => window.location.replace('/wall'))
+            .catch(() => window.location.replace('/wall'));
+        },
+      }),
+    ];
+  }
+
   const link = document.createElement('a');
   link.className = 'wall-nav__link';
-  if (mode === 'member') {
-    link.href = '/member/me';
-    link.textContent = '我的貼文';
-  } else {
-    // §10.3：訪客的 FAB 改為加入引導
-    link.href = '/join';
-    link.textContent = '我要加入';
-  }
+  link.href = '/join';
+  link.textContent = '我要加入';
   return [link];
 }
 
@@ -181,7 +189,6 @@ async function main(): Promise<void> {
     count: countByWeek.get(w) ?? 0,
   }));
 
-  const lightbox = createLightbox();
   let selected = weekFromHash() ?? current;
   if (!weeks.includes(selected)) selected = current;
 
@@ -189,9 +196,11 @@ async function main(): Promise<void> {
 
   const show = async (week: WeekStart): Promise<void> => {
     selected = week;
-    // 換週次時把上一輪的監聽器拆掉，否則一學期切下來會累積一堆 scroll 與 interval。
+    // 換週次時把上一輪的監聽器拆掉，否則一學期切下來會累積一堆 interval 與 document 監聽器。
+    // header 也會被整個換掉，所以大頭貼選單掛在 document 上的兩個監聽器一併拆。
     const previous = app.querySelector<HTMLElement>('.wall-weeks');
     if (previous) disposeCards(previous);
+    app.querySelector('.user-menu')?.dispatchEvent(new CustomEvent('user-menu:dispose'));
     detachEntrance?.();
 
     const body = document.createElement('div');
@@ -209,7 +218,7 @@ async function main(): Promise<void> {
       theme,
       weeks: options,
       activeWeek: week,
-      navActions: navActions(mode),
+      navActions: navActions(viewer),
       onSelectWeek: (next) => {
         if (next !== selected) void show(next);
       },
@@ -219,7 +228,7 @@ async function main(): Promise<void> {
 
     try {
       const posts = await listWeek(week, asMemberId);
-      body.append(renderWeekSection(week, posts, theme, mode, lightbox.open));
+      body.append(renderWeekSection(week, posts, theme, mode));
     } catch (error: unknown) {
       body.append(failure(error instanceof Error ? error.message : `${week} 載入失敗。`));
     }
@@ -238,6 +247,7 @@ async function main(): Promise<void> {
   window.addEventListener('pagehide', () => {
     const body = app.querySelector<HTMLElement>('.wall-weeks');
     if (body) disposeCards(body);
+    app.querySelector('.user-menu')?.dispatchEvent(new CustomEvent('user-menu:dispose'));
     detachEntrance?.();
   });
 }

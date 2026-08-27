@@ -232,6 +232,10 @@ body {
   font: inherit;
   text-align: left;
   cursor: pointer;
+  /* 卡片是 <a>（polaroid.ts）：關掉瀏覽器預設的底線與連結色，
+     卡片裡的標題與姓名要用一般文字的顏色。 */
+  text-decoration: none;
+  color: var(--ink);
   background: var(--card);
   box-shadow: 0 3px 8px rgb(0 0 0 / 28%), 0 10px 22px rgb(0 0 0 / 16%);
   /* 留著三個寫法當第二道防線：舊 WebKit 只認 -webkit- 那個 */
@@ -253,7 +257,7 @@ body {
   box-shadow: 0 6px 14px rgb(0 0 0 / 32%), 0 16px 30px rgb(0 0 0 / 18%);
 }
 
-/* 手機沒有 hover。少了這一條，點下去到 lightbox 開啟之間完全沒有回饋，
+/* 手機沒有 hover。少了這一條，點下去到換頁之間完全沒有回饋，
    在慢一點的機器上會讓人以為沒點到而連按兩次。 */
 .polaroid:active {
   transform: rotate(var(--rot, 0deg)) scale(0.97);
@@ -399,113 +403,98 @@ body {
 .fab--guest { background: #7a4b2a; }
 .fab[disabled] { background: #6d6862; cursor: not-allowed; }
 
-/* -------------------------------------------------------------- lightbox --- */
+/* -------------------------------------------------------- 大頭貼選單 --- */
+/* §10.2 / ADR-0011：右上角原本是一條寫死的「我的貼文」，每多一個功能就得跟
+   手機的導覽列搶橫向空間。改為大頭貼加下拉清單，新功能是往清單加一列。 */
 
-/*
- * <dialog> 有兩個內建樣式必須明確蓋掉，否則失敗模式都很難看出原因。
- *
- * 一、width / height 是 fit-content，margin 是 auto。
- *    只寫 inset: 0 蓋不掉——過度約束時寬高勝出，再被 auto margin 推到正中央，
- *    於是得到一個置中的小方塊而不是滿版。
- *
- * 二、dialog:not([open]) { display: none } 是**瀏覽器內建**樣式，
- *    而下面的 display: flex 是作者樣式。層疊來源上作者永遠贏過內建，
- *    與選擇器的 specificity 無關。少了本區塊最後那條規則，
- *    關著的 lightbox 會一直畫在畫面正中央。
- */
-.lightbox {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
+.user-menu { position: relative; }
+
+.user-menu__trigger {
+  display: block;
+  width: 2.1rem;
+  height: 2.1rem;
+  padding: 0;
+  border: 1px solid rgb(246 241 231 / 45%);
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+  background: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms ease;
+}
+
+.user-menu__trigger:active { transform: scale(0.94); }
+
+.user-menu__avatar,
+.user-menu__initial {
+  display: block;
   width: 100%;
   height: 100%;
-  max-width: 100%;
-  max-height: 100%;
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  border: 0;
-  background: rgb(16 13 10 / 94%);
+  object-fit: cover;
 }
 
-.lightbox:not([open]) { display: none; }
-
-.lightbox::backdrop { background: rgb(16 13 10 / 80%); }
-
-.lightbox__bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  color: #f6f1e7;
-  font-size: 0.85rem;
-}
-
-.lightbox__detail {
-  margin-left: auto;
-  margin-right: 0.5rem;
-  color: #f6f1e7;
-  font-size: 0.8rem;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-.lightbox__close {
-  border: 0;
-  border-radius: 999px;
-  width: 2.25rem;
-  height: 2.25rem;
-  font-size: 1.1rem;
-  cursor: pointer;
-  background: rgb(255 255 255 / 15%);
-  color: #f6f1e7;
-}
-
-.lightbox__stage {
-  flex: 1;
+/* 頭像載不到時的退路。色相由姓名雜湊而來（user-menu.ts），
+   飽和度與亮度固定，確保白字在任何色相上都讀得到。 */
+.user-menu__initial {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 0;
-  padding: 0 0.5rem;
-}
-
-.lightbox__img { max-width: 100%; max-height: 100%; object-fit: contain; }
-
-.lightbox__caption {
-  padding: 0.9rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom, 0px));
-  color: #f6f1e7;
-  font-family: var(--font-hand);
+  background: hsl(var(--hue, 20) 45% 38%);
+  color: #fffdf7;
   font-size: 0.95rem;
-  line-height: 1.6;
-  text-align: center;
+  font-weight: 600;
+  line-height: 1;
 }
 
-.lightbox__nav {
-  display: flex;
-  justify-content: center;
-  gap: 1rem;
-  padding-bottom: 0.5rem;
+.user-menu__list {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  right: 0;
+  z-index: 30;
+  min-width: 11rem;
+  padding: 0.35rem;
+  border-radius: 0.6rem;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 32%);
 }
 
-.lightbox__nav button {
-  min-width: 3rem;
-  min-height: 2.5rem;
+/* hidden 屬性的內建樣式是 display: none，但上面的 display 若寫在同一個選擇器
+   會蓋掉它（作者樣式勝過內建）。這裡不對 .user-menu__list 寫 display，
+   靠 hidden 自己生效即可——改動時別順手加上 display: block。 */
+
+.user-menu__name {
+  margin: 0;
+  padding: 0.35rem 0.6rem 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.user-menu__role {
+  margin: 0 0 0.25rem;
+  padding: 0 0.6rem 0.35rem;
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+  border-bottom: 1px solid rgb(0 0 0 / 8%);
+}
+
+.user-menu__item {
+  display: block;
+  width: 100%;
+  padding: 0.55rem 0.6rem;
   border: 0;
   border-radius: 0.4rem;
-  font-size: 1.1rem;
+  font: inherit;
+  font-size: 0.88rem;
+  text-align: left;
+  text-decoration: none;
+  color: var(--ink);
   cursor: pointer;
-  background: rgb(255 255 255 / 15%);
-  color: #f6f1e7;
+  background: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.lightbox__nav button[disabled] { opacity: 0.3; cursor: default; }
+.user-menu__item:hover,
+.user-menu__item:focus-visible { background: rgb(0 0 0 / 6%); }
 
-.visually-hidden {
-  position: absolute;
-  width: 1px; height: 1px;
-  margin: -1px; padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
+.user-menu__item--danger { color: var(--pin); }

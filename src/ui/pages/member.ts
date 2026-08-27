@@ -18,7 +18,6 @@ import { getViewer } from '@modules/membership';
 import type { Viewer } from '@modules/membership';
 import { getMyQuota, listMine } from '@modules/posts';
 import type { Post, QuotaState } from '@modules/posts';
-import { createLightbox } from '@ui/components/lightbox';
 import { disposeCards, observeEntrance, polaroidCard } from '@ui/components/polaroid';
 
 function el<K extends keyof HTMLElementTagNameMap>(
@@ -77,21 +76,19 @@ function head(viewer: Viewer, posts: readonly Post[], quota: QuotaState): HTMLEl
   return box;
 }
 
-function grid(posts: readonly Post[], onOpen: (p: readonly Post[], i: number) => void): HTMLElement {
+function grid(posts: readonly Post[]): HTMLElement {
   const wrap = el('div', 'member-grid');
   const masonry = el('div', 'masonry');
-  posts.forEach((post, index) => {
-    const cardEl = polaroidCard(post, {
-      onOpen: () => onOpen(posts, index),
-      refundCountdown: true,
-    });
+  for (const post of posts) {
+    // 卡片本身就是連往 /post/:id 的連結（polaroid.ts）。
+    const cardEl = polaroidCard(post, { refundCountdown: true });
     // §9.5：下架的貼文只有作者看得到，必須一眼看出它不是正常狀態。
     if (post.hiddenByAdmin) {
       cardEl.dataset['hidden'] = 'true';
       cardEl.title = '這則已被管理員下架，只有你看得到。';
     }
     masonry.append(cardEl);
-  });
+  }
   wrap.append(masonry);
   return wrap;
 }
@@ -146,8 +143,7 @@ async function main(): Promise<void> {
       return;
     }
 
-    const lightbox = createLightbox();
-    const body = grid(posts, lightbox.open);
+    const body = grid(posts);
     app.replaceChildren(head(viewer, posts, quota), body);
 
     const detach = observeEntrance(body);

@@ -110,7 +110,7 @@ describe('/join 的身分分派（§10.4）', () => {
   });
 
   it('已是成員時導向牆頁', async () => {
-    await renderJoin({ kind: 'member', memberId: 'm1', displayName: '陳小明' });
+    await renderJoin({ kind: 'member', memberId: 'm1', displayName: '陳小明', avatarUrl: null });
     expect(window.location.replace).toHaveBeenCalledWith('/wall');
   });
 });
@@ -144,7 +144,7 @@ describe('/join 的告知同意與送出檢查（§8.6、§17）', () => {
 
   it('通過檢查後以去空白的值呼叫 joinRoom，成功則導向牆頁', async () => {
     const app = await renderJoin({ kind: 'orphan', suggestedName: null });
-    mocks.joinRoom.mockResolvedValue({ kind: 'member', memberId: 'm1', displayName: '陳小明' });
+    mocks.joinRoom.mockResolvedValue({ kind: 'member', memberId: 'm1', displayName: '陳小明', avatarUrl: null });
     await submit(app, { name: ' 陳小明 ', code: ' CODE-1234-5678 ' });
     expect(mocks.joinRoom).toHaveBeenCalledWith('CODE-1234-5678', '陳小明');
     expect(window.location.replace).toHaveBeenCalledWith('/wall');

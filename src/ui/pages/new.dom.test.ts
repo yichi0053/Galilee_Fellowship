@@ -25,7 +25,7 @@ vi.mock('@modules/posts', () => ({
 vi.mock('@modules/themes', () => ({ getCurrentTheme: mocks.getCurrentTheme }));
 vi.mock('@modules/media', () => ({ previewUrl: () => 'blob:preview' }));
 
-const MEMBER: Viewer = { kind: 'member', memberId: 'm-1', displayName: '陳小明' };
+const MEMBER: Viewer = { kind: 'member', memberId: 'm-1', displayName: '陳小明', avatarUrl: null };
 const THEME: Theme = {
   id: 'th-1',
   week: '2026-08-24' as Theme['week'],

@@ -23,9 +23,9 @@ vi.mock('@modules/posts', () => ({ getPost: mocks.getPost, deletePost: mocks.del
 vi.mock('@modules/admin', () => ({ hidePost: mocks.hidePost, unhidePost: mocks.unhidePost }));
 
 const POST_ID = '11497c3e-ce30-4398-8390-63925d87af89';
-const AUTHOR: Viewer = { kind: 'member', memberId: 'm-1', displayName: '陳小明' };
-const OTHER: Viewer = { kind: 'member', memberId: 'm-2', displayName: '林大華' };
-const ADMIN: Viewer = { kind: 'admin', memberId: 'm-9', displayName: '負責人' };
+const AUTHOR: Viewer = { kind: 'member', memberId: 'm-1', displayName: '陳小明', avatarUrl: null };
+const OTHER: Viewer = { kind: 'member', memberId: 'm-2', displayName: '林大華', avatarUrl: null };
+const ADMIN: Viewer = { kind: 'admin', memberId: 'm-9', displayName: '負責人', avatarUrl: null };
 
 function makePost(over: Partial<Post> = {}): Post {
   return {
