@@ -12,13 +12,12 @@
     "verbatimModuleSyntax": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "baseUrl": ".",
     "paths": {
-      "@db/*": ["src/db/*"],
-      "@domain/*": ["src/domain/*"],
-      "@modules/*": ["src/modules/*"],
-      "@ui/*": ["src/ui/*"],
-      "@config/*": ["src/config/*"]
+      "@db/*": ["./src/db/*"],
+      "@domain/*": ["./src/domain/*"],
+      "@modules/*": ["./src/modules/*"],
+      "@ui/*": ["./src/ui/*"],
+      "@config/*": ["./src/config/*"]
     }
   },
   "include": ["vite.config.ts", "vitest.config.ts", "scripts/**/*.ts", "src/domain/**/*.ts", "src/config/**/*.ts"]

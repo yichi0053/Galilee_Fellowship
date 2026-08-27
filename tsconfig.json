@@ -19,13 +19,12 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
 
-    "baseUrl": ".",
     "paths": {
-      "@db/*": ["src/db/*"],
-      "@domain/*": ["src/domain/*"],
-      "@modules/*": ["src/modules/*"],
-      "@ui/*": ["src/ui/*"],
-      "@config/*": ["src/config/*"]
+      "@db/*": ["./src/db/*"],
+      "@domain/*": ["./src/domain/*"],
+      "@modules/*": ["./src/modules/*"],
+      "@ui/*": ["./src/ui/*"],
+      "@config/*": ["./src/config/*"]
     }
   },
   "include": ["src"]
