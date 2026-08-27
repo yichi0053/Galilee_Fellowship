@@ -81,7 +81,7 @@ function grid(posts: readonly Post[]): HTMLElement {
   const masonry = el('div', 'masonry');
   for (const post of posts) {
     // 卡片本身就是連往 /post/:id 的連結（polaroid.ts）。
-    const cardEl = polaroidCard(post, { refundCountdown: true });
+    const cardEl = polaroidCard(post, { deleteCountdown: true });
     // §9.5：下架的貼文只有作者看得到，必須一眼看出它不是正常狀態。
     if (post.hiddenByAdmin) {
       cardEl.dataset['hidden'] = 'true';

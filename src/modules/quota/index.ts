@@ -1,7 +1,7 @@
 /**
  * quota — 葉節點（架構書 §12.2）。
  *
- * 職責：配額計算與回補判定。規格見 §9.1 / ADR-0010、ADR-0015。
+ * 職責：配額計算與可刪除期限的判定。規格見 §9.1 / ADR-0015、ADR-0021。
  *
  * 純規則在 ./rules.ts（internal，已有測試涵蓋 §15.4）；
  * 本檔只負責去資料庫拿數字，然後把結果交給那些規則。
@@ -16,9 +16,9 @@ import type { PostKind, Remaining, UsedCounts } from './rules';
 export type { PostKind } from './rules';
 export {
   canPost,
-  isWithinRefundWindow,
-  refundableUntil,
-  refundMsRemaining,
+  isWithinDeleteWindow,
+  deletableUntil,
+  deleteMsRemaining,
 } from './rules';
 
 export type QuotaState = {
@@ -35,15 +35,15 @@ export type QuotaState = {
  * **刻意不濾 deleted_at**，這一點與直覺相反，所以寫清楚：
  *
  * 「有沒有用掉配額」這件事完全由 counts_toward_quota 表達，而那個欄位是
- * migration 007 的 soft_delete_post 依伺服器時間決定的——回補期內刪除設為 false，
+ * migration 012 的 soft_delete_post 依伺服器時間決定的——期限內刪除設為 false，
  * 逾期刪除維持 true。三種狀態各自對應：
  *
  *   未刪除            counts_toward_quota = true   → 計數
- *   回補期內刪除      counts_toward_quota = false  → 不計數（配額回補）
- *   逾期刪除          counts_toward_quota = true   → 仍計數（不回補，ADR-0010）
+ *   期限內刪除        counts_toward_quota = false  → 不計數（配額退還）
+ *   逾期            根本刪不掉（ADR-0021：migration 012 直接拒絕）
  *
  * 若再加上 deleted_at is null，第三種狀態會被排除在計數之外，
- * 於是**任何時候刪除都等於回補，ADR-0010 的回補期完全失去作用**。
+ * 於是**任何時候刪除都等於退還配額，期限完全失去作用**。
  * 那個失效是安靜的：配額看起來永遠夠用，沒有人會察覺每週上限已經形同虛設。
  */
 async function countUsed(memberId: string, week: WeekStart): Promise<UsedCounts> {

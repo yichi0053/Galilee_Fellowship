@@ -22,7 +22,7 @@ import { currentWeekStart, parseWeekStart } from '@domain/week';
 import type { WeekStart } from '@domain/week';
 import { processImage } from '@modules/media';
 import type { CropRect } from '@modules/media';
-import { canPost, getQuotaFor, refundableUntil } from '@modules/quota';
+import { canPost, deletableUntil, getQuotaFor } from '@modules/quota';
 import type { PostKind, QuotaState } from '@modules/quota';
 import { getThemeForWeek } from '@modules/themes';
 
@@ -53,8 +53,11 @@ export type Post = {
    */
   readonly authorId: string | null;
   readonly createdAt: Date;
-  /** 作者本人可刪除並回補配額的截止時刻；非作者或已逾期為 null（§9.1 的 10 分鐘倒數） */
-  readonly refundableUntil: Date | null;
+  /**
+   * 作者本人可自行刪除的截止時刻；非作者或已逾期為 null（§9.5 / ADR-0021）。
+   * 逾期即刪不掉了，不是「刪得掉但不回補」——期限內刪除等同撤回。
+   */
+  readonly deletableUntil: Date | null;
   /** 僅作者本人看得到的下架佔位狀態（§9.5） */
   readonly hiddenByAdmin: boolean;
 };
@@ -281,7 +284,7 @@ async function listWeekAsGuest(week: WeekStart): Promise<ReadonlyArray<Post>> {
   });
 }
 
-/** 成員路徑：讀 posts 本表以取得未遮蔽姓名、自己的回補倒數與下架佔位 */
+/** 成員路徑：讀 posts 本表以取得未遮蔽姓名、自己的可刪除倒數與下架佔位 */
 async function listWeekAsMember(
   week: WeekStart,
   asMemberId: string,
@@ -427,7 +430,7 @@ type PostRow = {
 function toPost(row: PostRow): Post {
   const createdAt = new Date(row.createdAt);
 
-  // ADR-0010：回補期只對作者本人有意義，逾期即為 null，UI 不必自己判斷。
+  // ADR-0021：可刪除期限只對作者本人有意義，逾期即為 null，UI 不必自己判斷。
   // 期限的算式在 quota 只有一份，這裡不重寫。
   const isMine = row.authorId !== null && row.authorId === row.asMemberId;
 
@@ -443,7 +446,7 @@ function toPost(row: PostRow): Post {
     authorName: row.authorName,
     authorId: row.authorId,
     createdAt,
-    refundableUntil: isMine ? refundableUntil(createdAt) : null,
+    deletableUntil: isMine ? deletableUntil(createdAt) : null,
     hiddenByAdmin: row.hiddenByAdmin,
   };
 }
@@ -452,7 +455,7 @@ function toPost(row: PostRow): Post {
  * 單則貼文。找不到、已軟刪除、或被下架且看的人不是作者，一律回 null。
  *
  * 身分同 listWeek 由呼叫端傳入：訪客讀 posts_public（遮蔽姓名），
- * 成員讀 posts 本表（未遮蔽姓名、自己的回補倒數）。
+ * 成員讀 posts 本表（未遮蔽姓名、自己的可刪除倒數）。
  */
 export async function getPost(id: PostId, asMemberId: string | null): Promise<Post | null> {
   if (asMemberId === null) {
@@ -523,15 +526,15 @@ export async function getPost(id: PostId, asMemberId: string | null): Promise<Po
  * 真要做的話不只是一個 update：改圖要重新上傳與清掉舊檔、
  * 且 migration 010 已收回 `posts` 的欄位層級 UPDATE 權限，
  * 得再開一支 migration 才動得了 `body`。現階段的替代路徑是刪掉重發——
- * 10 分鐘內刪除會回補配額（ADR-0010），剛好覆蓋「貼完才發現打錯字」這個情境。
+ * 20 分鐘內可以刪掉重發（ADR-0021），剛好覆蓋「貼完才發現打錯字」這個情境。
  */
 
 /**
- * 軟刪除。內部判定是否在回補期內，決定配額是否回補。
+ * 軟刪除。逾期會被伺服器拒絕（ADR-0021），期限內則一律退還配額。
  *
  * 整件事交給 migration 007 的 soft_delete_post 做，前端不參與判斷：
- * 回補與否取決於「現在距離發布是否在 10 分鐘內」，若由瀏覽器決定，
- * 使用者把本機時鐘往回撥就能讓任何舊貼文都算在回補期內，
+ * 刪不刪得掉取決於「現在距離發布是否在 20 分鐘內」，若由瀏覽器決定，
+ * 使用者把本機時鐘往回撥就能刪掉任何一則舊貼文，
  * 於是刪了再發、無限繞過每週配額。作者身分同樣由該函式以 auth.uid() 反查。
  *
  * ****** 呼叫端完全不知道 counts_toward_quota 這個欄位存在。這就是「深」。******

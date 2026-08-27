@@ -22,7 +22,7 @@ function makePost(over: Partial<Post> = {}): Post {
     authorName: '陳小明',
     authorId: 'm-1',
     createdAt: new Date('2026-08-25T10:00:00Z'),
-    refundableUntil: null,
+    deletableUntil: null,
     hiddenByAdmin: false,
     ...over,
   };

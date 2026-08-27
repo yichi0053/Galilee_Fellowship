@@ -33,7 +33,7 @@ function makePost(i: number, over: Partial<Post> = {}): Post {
     authorName: '陳小明',
     authorId: 'm-1',
     createdAt: new Date(Date.now() - i * 86_400_000),
-    refundableUntil: null,
+    deletableUntil: null,
     hiddenByAdmin: false,
     ...over,
   };

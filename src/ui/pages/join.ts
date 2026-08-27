@@ -12,7 +12,7 @@ import '@ui/styles/wall.css';
 import '@ui/styles/paper.css';
 import '@ui/styles/join.css';
 
-import { DISPLAY_NAME_MAX_LENGTH } from '@config/constants';
+import { DELETE_WINDOW_MINUTES, DISPLAY_NAME_MAX_LENGTH } from '@config/constants';
 import { signInWithGoogle } from '@modules/auth';
 import {
   InvalidJoinCodeError,
@@ -59,10 +59,18 @@ function wallLink(text = '先去看看牆'): HTMLElement {
 }
 
 /**
- * §17：本段文字已由團契負責人（即本專案的管理員）於 2026-08-27 確認，維持原文。
+ * §17：本段文字由團契負責人（即本專案的管理員）簽核。
+ * 2026-08-27 首次確認，2026-08-28 因刪除機制改動而修訂第 3 點。
  *
- * 四個要點來自架構書，不可刪減——成員名單帶有宗教信仰資訊，
+ * 四個要點來自架構書，**不可刪減**——成員名單帶有宗教信仰資訊，
  * 屬個資法第 6 條特種個人資料（§8.6），告知同意是法律要求而非禮貌。
+ * 措辭可以改，要點不能少。
+ *
+ * 第 3 點原本是「你隨時可以自己刪除自己的貼文」。ADR-0021 把自行刪除
+ * 收窄到 20 分鐘之後，那句話變成不實陳述，故一併改寫並指出事後的管道——
+ * 對特種個人資料而言，「拿不掉」與「要透過別人才拿得掉」是完全不同的兩件事，
+ * 不能只寫前半句。**這裡的 20 分鐘與 constants.ts 的 DELETE_WINDOW_MINUTES
+ * 是同一個數字的兩份，改動時務必同時改。**
  *
  * 簽核時討論過但決定不加的一句：第 2 點的「姓名會被遮蔽」保護的是姓名而非臉，
  * 認識當事人的訪客仍認得出照片裡是誰，也因而知道其宗教身分。
@@ -74,8 +82,8 @@ function consentBlock(): HTMLElement {
   const list = el('ul', 'join-consent__list');
   for (const line of [
     '你上傳的照片與你填的姓名，同房間的成員都看得到。',
-    '持有連結的非成員也看得到照片，但姓名會被遮蔽（例如「陳小O」）。',
-    '你隨時可以自己刪除自己的貼文。',
+    '持有連結的非成員也看得到照片，但姓名會被遮蔽。',
+    `發布後 ${DELETE_WINDOW_MINUTES} 分鐘內可以自己刪除；超過時間請聯絡團契負責人。`,
     '若日後退出房間，你已發布的貼文仍會保留顯示。',
   ]) {
     list.append(el('li', undefined, line));

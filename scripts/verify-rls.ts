@@ -363,17 +363,17 @@ async function main(): Promise<void> {
     const deleted = rows(rAfter)[0] as
       | { deleted_at: string | null; counts_toward_quota: boolean }
       | undefined;
-    check('回補期內刪除會把 counts_toward_quota 設為 false（ADR-0010）',
+    check('期限內刪除會把 counts_toward_quota 設為 false（ADR-0021）',
       deleted?.deleted_at !== null && deleted?.counts_toward_quota === false,
       JSON.stringify(deleted));
 
-    // 另一半：ADR-0010 說「超過 10 分鐘刪除不回補」。回填 created_at 到 30 分鐘前，
-    // 不必真的等。這一項曾經是安靜壞掉的——配額查詢多帶了 deleted_at is null，
-    // 於是逾期刪除也被排除在計數之外，回補期形同虛設而沒有人會察覺。
+    // 另一半：ADR-0021 說「超過 20 分鐘就刪不掉」。回填 created_at 到 40 分鐘前，
+    // 不必真的等。這是本次規則改動最要緊的一項——前端把按鈕藏起來只是禮貌，
+    // 真正把關的是 migration 012 的 raise exception。
     const stale = await createPost(
       memberA.memberId,
-      '成員 A 的舊貼文，用來測試逾期刪除不回補。',
-      new Date(Date.now() - 30 * 60_000),
+      '成員 A 的舊貼文，用來測試逾期刪除會被拒絕。',
+      new Date(Date.now() - 40 * 60_000),
     );
     await rest(asA, 'rpc/soft_delete_post', {
       method: 'POST',
@@ -383,8 +383,9 @@ async function main(): Promise<void> {
     const staleRow = rows(rStale)[0] as
       | { deleted_at: string | null; counts_toward_quota: boolean }
       | undefined;
-    check('逾期刪除維持 counts_toward_quota = true（ADR-0010：不回補）',
-      staleRow?.deleted_at !== null && staleRow?.counts_toward_quota === true,
+    // ADR-0021：逾期刪除現在會被 migration 012 直接拒絕，貼文維持未刪除狀態。
+    check('逾期刪除被拒絕，貼文仍在（ADR-0021）',
+      staleRow?.deleted_at === null,
       JSON.stringify(staleRow));
 
     // 光是欄位對還不夠：配額查詢必須真的把它算進去，否則欄位形同裝飾。
@@ -392,7 +393,7 @@ async function main(): Promise<void> {
       `/rest/v1/posts?select=id&author_id=eq.${memberA.memberId}` +
         `&week_start_date=eq.${weekStartOf()}&type=eq.free&counts_toward_quota=eq.true`,
     );
-    check('逾期刪除的貼文仍被配額查詢計入（否則回補期形同虛設）',
+    check('逾期的貼文仍被配額查詢計入（它根本沒被刪掉）',
       rows(rCount).some((r) => (r as { id: string }).id === stale),
       `符合條件的列：${rows(rCount).length}`);
 

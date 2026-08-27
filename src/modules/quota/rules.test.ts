@@ -2,12 +2,12 @@
  * §15.2 優先序 2、§15.4 的配額測試案例。
  */
 import { describe, expect, it } from 'vitest';
-import { QUOTA, REFUND_WINDOW_MINUTES } from '@config/constants';
+import { DELETE_WINDOW_MINUTES, QUOTA } from '@config/constants';
 import {
   canPost,
-  isWithinRefundWindow,
-  refundMsRemaining,
-  refundableUntil,
+  isWithinDeleteWindow,
+  deleteMsRemaining,
+  deletableUntil,
   remainingFrom,
 } from './rules';
 
@@ -44,48 +44,56 @@ describe('canPost', () => {
   });
 });
 
-describe('回補期（§9.1 / ADR-0010）', () => {
-  it('§15.4：發文後 5 分鐘刪除，落在回補期內', () => {
-    expect(isWithinRefundWindow(T0, after(5))).toBe(true);
+describe('可刪除期限（§9.5 / ADR-0021）', () => {
+  it('§15.4：發文後 5 分鐘，還刪得掉', () => {
+    expect(isWithinDeleteWindow(T0, after(5))).toBe(true);
   });
 
-  it('§15.4：發文後 15 分鐘刪除，不在回補期內', () => {
-    expect(isWithinRefundWindow(T0, after(15))).toBe(false);
+  it('發文後 15 分鐘，仍在 20 分鐘內，還刪得掉', () => {
+    // 舊規則是 10 分鐘，這一項在改成 20 分鐘之後由 false 翻成 true。
+    expect(isWithinDeleteWindow(T0, after(15))).toBe(true);
   });
 
-  it('第 10 分鐘整仍回補（邊界採含）', () => {
-    expect(isWithinRefundWindow(T0, after(REFUND_WINDOW_MINUTES))).toBe(true);
+  it('發文後 25 分鐘，刪不掉了', () => {
+    expect(isWithinDeleteWindow(T0, after(25))).toBe(false);
   });
 
-  it('第 10 分鐘又 1 毫秒不回補', () => {
-    expect(isWithinRefundWindow(T0, new Date(after(REFUND_WINDOW_MINUTES).getTime() + 1))).toBe(
+  it('第 20 分鐘整仍可刪（邊界採含）', () => {
+    // UI 的倒數在 20:00 走到 0。這裡若採「不含」，使用者在讀秒歸零那一刻
+    // 按下刪除會被拒絕，而且完全看不出原因。
+    expect(isWithinDeleteWindow(T0, after(DELETE_WINDOW_MINUTES))).toBe(true);
+  });
+
+  it('第 20 分鐘又 1 毫秒刪不掉', () => {
+    expect(isWithinDeleteWindow(T0, new Date(after(DELETE_WINDOW_MINUTES).getTime() + 1))).toBe(
       false,
     );
   });
 
   it('時鐘偏移導致 now 早於發布時刻時，視為仍在窗內', () => {
-    expect(isWithinRefundWindow(T0, after(-30))).toBe(true);
+    // 誤差一律往有利使用者的方向倒：真正把關的是伺服器（migration 012）。
+    expect(isWithinDeleteWindow(T0, after(-30))).toBe(true);
   });
 });
 
 describe('倒數顯示', () => {
-  it('剛發布時為完整的 10 分鐘', () => {
-    expect(refundMsRemaining(T0, T0)).toBe(REFUND_WINDOW_MINUTES * 60_000);
+  it('剛發布時為完整的 20 分鐘', () => {
+    expect(deleteMsRemaining(T0, T0)).toBe(DELETE_WINDOW_MINUTES * 60_000);
   });
 
   it('逾期後為 0，不會變負數', () => {
-    expect(refundMsRemaining(T0, after(30))).toBe(0);
+    expect(deleteMsRemaining(T0, after(30))).toBe(0);
   });
 
-  it('refundableUntil 在窗內回傳截止時刻，逾期回傳 null', () => {
-    expect(refundableUntil(T0, after(5))?.toISOString()).toBe('2026-08-26T04:10:00.000Z');
-    expect(refundableUntil(T0, after(11))).toBeNull();
+  it('deletableUntil 在窗內回傳截止時刻，逾期回傳 null', () => {
+    expect(deletableUntil(T0, after(5))?.toISOString()).toBe('2026-08-26T04:20:00.000Z');
+    expect(deletableUntil(T0, after(21))).toBeNull();
   });
 
-  it('倒數與回補判斷在邊界上一致', () => {
-    const edge = after(REFUND_WINDOW_MINUTES);
-    expect(isWithinRefundWindow(T0, edge)).toBe(true);
-    expect(refundMsRemaining(T0, edge)).toBe(0);
-    expect(refundableUntil(T0, edge)).not.toBeNull();
+  it('倒數與可刪判斷在邊界上一致', () => {
+    const edge = after(DELETE_WINDOW_MINUTES);
+    expect(isWithinDeleteWindow(T0, edge)).toBe(true);
+    expect(deleteMsRemaining(T0, edge)).toBe(0);
+    expect(deletableUntil(T0, edge)).not.toBeNull();
   });
 });

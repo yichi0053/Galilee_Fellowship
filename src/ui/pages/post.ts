@@ -4,8 +4,9 @@
  * UI 層禁止 import db/（§12.4 規則 2）。資料一律經由各 module 的 index.ts。
  *
  * 這一頁存在的主要理由是**刪除**：發錯的人需要一個地方收回，
- * 而 §9.1 的回補期只有 10 分鐘。倒數走完之前刪除會回補配額，走完之後不會——
- * 但那個判斷在伺服器端（migration 007），這裡的倒數只是把時間畫出來給人看。
+ * 而 §9.5 的期限只有 20 分鐘——倒數走完之後就刪不掉了（ADR-0021）。
+ * 那個判斷在伺服器端（migration 012 的 raise exception），
+ * 這裡的倒數只是把時間畫出來給人看，並在歸零時把按鈕收掉。
  */
 
 import '@ui/styles/wall.css';
@@ -13,6 +14,7 @@ import '@ui/styles/paper.css';
 import '@ui/styles/post-detail.css';
 
 import { hidePost, unhidePost } from '@modules/admin';
+import { DELETE_WINDOW_MINUTES } from '@config/constants';
 import { getViewer } from '@modules/membership';
 import type { Viewer } from '@modules/membership';
 import { deletePost, getPost } from '@modules/posts';
@@ -71,19 +73,32 @@ function ownerActions(post: Post): HTMLElement {
   const countdown = el('span', 'owner__countdown');
   box.append(countdown);
 
-  // 倒數只是把時間畫出來。真正決定回不回補的是伺服器的 now()（migration 007），
-  // 使用者改本機時鐘只會讓這行字說謊，不會多拿到配額。
-  const deadline = post.refundableUntil?.getTime() ?? 0;
+  const remove = el('button', 'paper-button paper-button--danger', '刪除這則貼文');
+  remove.type = 'button';
+  box.append(remove);
+
+  // 逾期時要把確認列也一併收掉，所以它必須在 paint 看得到的範圍。
+  // 使用者剛好在讀秒歸零那一刻按下「刪除這則貼文」的話，
+  // 留著一個按下去必定失敗的「確定刪除」比直接收掉更糟。
+  let confirmRow: HTMLElement | null = null;
+
+  // 倒數只是把時間畫出來。真正決定刪不刪得掉的是伺服器的 now()（migration 012），
+  // 使用者改本機時鐘只會讓這行字說謊，按下去照樣被資料庫拒絕。
+  const deadline = post.deletableUntil?.getTime() ?? 0;
   const paint = (): void => {
     const remaining = deadline - Date.now();
     if (remaining > 0) {
       const s = Math.ceil(remaining / 1000);
-      countdown.textContent =
-        `還有 ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')} 可以刪除並回補這次的配額。`;
+      countdown.textContent = `還有 ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')} 可以刪除這則貼文。`;
       countdown.dataset['expired'] = 'false';
     } else {
-      countdown.textContent = '回補期已過。現在刪除不會拿回這次的配額。';
+      // ADR-0021：逾期就刪不掉了。按鈕直接移除而不是停用——
+      // 停用的按鈕還在那裡，會讓人一直試著點它。
+      countdown.textContent =
+        `已超過 ${DELETE_WINDOW_MINUTES} 分鐘，無法自行刪除。需要移除請聯絡團契負責人。`;
       countdown.dataset['expired'] = 'true';
+      remove.remove();
+      confirmRow?.remove();
       window.clearInterval(timer);
     }
   };
@@ -91,22 +106,22 @@ function ownerActions(post: Post): HTMLElement {
   paint();
   window.addEventListener('pagehide', () => window.clearInterval(timer));
 
-  const remove = el('button', 'paper-button paper-button--danger', '刪除這則貼文');
-  remove.type = 'button';
-  box.append(remove);
-
   remove.addEventListener('click', () => {
     // 兩段式確認而不是 window.confirm：刪除無法復原（ADR-0009 的 30 天後硬刪除），
     // 值得一個看得見、可以反悔的步驟。
-    const confirmRow = el('div', 'owner__confirm');
+    const row = el('div', 'owner__confirm');
+    confirmRow = row;
     const yes = el('button', 'paper-button paper-button--danger', '確定刪除');
     yes.type = 'button';
     const no = el('button', 'paper-button paper-button--quiet', '算了');
     no.type = 'button';
-    confirmRow.append(yes, no);
-    remove.replaceWith(confirmRow);
+    row.append(yes, no);
+    remove.replaceWith(row);
 
-    no.addEventListener('click', () => confirmRow.replaceWith(remove));
+    no.addEventListener('click', () => {
+      row.replaceWith(remove);
+      confirmRow = null;
+    });
 
     yes.addEventListener('click', () => {
       yes.disabled = true;
@@ -118,7 +133,8 @@ function ownerActions(post: Post): HTMLElement {
           window.clearInterval(timer);
           window.location.replace('/wall');
         } catch (error: unknown) {
-          confirmRow.replaceWith(remove);
+          row.replaceWith(remove);
+          confirmRow = null;
           box.append(
             message('error', error instanceof Error ? error.message : '刪除失敗，請再試一次。'),
           );

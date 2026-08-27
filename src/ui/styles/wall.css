@@ -211,6 +211,20 @@ body {
 .masonry {
   columns: 2;
   column-gap: 0.75rem;
+
+  /*
+   * 這圈 padding 是給旋轉溢出用的，不是留白。
+   *
+   * .polaroid 帶 rotate(±3deg)（§11.2）。transform 只改變視覺，版面盒仍是
+   * 未旋轉時的大小——於是四個角會凸出版面盒之外，而多欄容器會在欄界把凸出的
+   * 部分裁掉：手機兩欄時最明顯，最上面那排卡片的上緣被切掉一條。
+   *
+   * 需要多少：卡片寬約 170 px、高約 220 px，rotate 3° 的溢出是
+   * 垂直 (170·sin3° + 220·(1−cos3°))/2 ≈ 4.6 px、水平 (220·sin3°)/2 ≈ 5.8 px。
+   * 取 8 px 上下、7 px 左右，留一點餘裕給更大的卡片。
+   * 改動 ROTATION_DEG_RANGE 時這裡要跟著算。
+   */
+  padding: 0.5rem 0.45rem;
 }
 
 @media (min-width: 40rem) { .masonry { columns: 3; column-gap: 1rem; } }
@@ -236,7 +250,9 @@ body {
   display: inline-block;
   vertical-align: top;
   width: 100%;
-  margin: 0 0 0.75rem;
+  /* 0.75rem 不夠：上下相鄰的兩張卡片各自旋轉之後角會互相壓到，
+     看起來就像後面那張被前面那張切了一角。 */
+  margin: 0 0 1rem;
   padding: 0.5rem 0.5rem 0.6rem;
   border: 0;
   border-radius: 2px;
@@ -330,7 +346,7 @@ body {
   color: var(--ink-soft);
 }
 
-.polaroid__refund {
+.polaroid__deletable {
   margin-top: 0.35rem;
   padding: 0.2rem 0.4rem;
   border-radius: 0.25rem;

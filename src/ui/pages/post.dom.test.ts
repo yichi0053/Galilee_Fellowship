@@ -40,7 +40,7 @@ function makePost(over: Partial<Post> = {}): Post {
     authorName: '陳小明',
     authorId: 'm-1',
     createdAt: new Date(Date.now() - 60_000),
-    refundableUntil: new Date(Date.now() + 9 * 60_000),
+    deletableUntil: new Date(Date.now() + 19 * 60_000),
     hiddenByAdmin: false,
     ...over,
   };
@@ -91,7 +91,7 @@ beforeEach(() => {
 });
 
 describe('/post/:id 的可見性', () => {
-  it('作者看得到刪除按鈕與回補倒數', async () => {
+  it('作者在期限內看得到刪除按鈕與倒數', async () => {
     const app = await render({ viewer: AUTHOR });
     expect(deleteButton(app)?.textContent).toBe('刪除這則貼文');
     expect(app.querySelector('.owner__countdown')?.textContent).toMatch(/還有 \d+:\d{2}/);
@@ -109,10 +109,13 @@ describe('/post/:id 的可見性', () => {
     expect(deleteButton(app)).toBeNull();
   });
 
-  it('回補期已過時仍可刪除，但明說不會拿回配額', async () => {
-    const app = await render({ post: makePost({ refundableUntil: null }) });
-    expect(deleteButton(app)).not.toBeNull();
-    expect(app.querySelector('.owner__countdown')?.textContent).toContain('不會拿回');
+  it('逾期後刪除按鈕直接消失，並指出事後的管道（ADR-0021）', async () => {
+    // 停用的按鈕還留在畫面上會讓人一直試著點它，所以是移除而不是 disabled。
+    const app = await render({ post: makePost({ deletableUntil: null }) });
+    expect(deleteButton(app)).toBeNull();
+    const note = app.querySelector('.owner__countdown')?.textContent ?? '';
+    expect(note).toContain('無法自行刪除');
+    expect(note).toContain('團契負責人');
   });
 
   it('被下架的貼文對作者顯示說明，而不是安靜地照常呈現（§9.5）', async () => {

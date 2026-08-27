@@ -16,15 +16,17 @@ const timeFormat = new Intl.DateTimeFormat('zh-TW', {
 });
 
 export type PolaroidOptions = {
-  /** 顯示 10 分鐘回補倒數（§9.1：不顯示的話使用者不會知道有這個規則） */
-  refundCountdown?: boolean;
+  /** 顯示可刪除倒數（§9.5：不顯示的話使用者不會知道時間一過就刪不掉了） */
+  deleteCountdown?: boolean;
 };
 
-function refundLabel(msRemaining: number): string {
+function deleteLabel(msRemaining: number): string {
   const total = Math.ceil(msRemaining / 1000);
   const mm = Math.floor(total / 60);
   const ss = String(total % 60).padStart(2, '0');
-  return `刪除可回補配額 ${mm}:${ss}`;
+  // 「回補配額」是內部詞彙，使用者不需要認識它（ADR-0021）。
+  // 倒數留著：時間一過就真的刪不掉了，這比以前更需要被看見。
+  return `還可刪除 ${mm}:${ss}`;
 }
 
 /**
@@ -118,12 +120,12 @@ export function polaroidCard(post: Post, options: PolaroidOptions = {}): HTMLEle
 
   card.append(frame, title, meta);
 
-  if (options.refundCountdown && post.refundableUntil) {
+  if (options.deleteCountdown && post.deletableUntil) {
     const hint = document.createElement('div');
-    hint.className = 'polaroid__refund';
+    hint.className = 'polaroid__deletable';
     card.append(hint);
 
-    const deadline = post.refundableUntil.getTime();
+    const deadline = post.deletableUntil.getTime();
     const tick = (): void => {
       const remaining = deadline - Date.now();
       if (remaining <= 0) {
@@ -131,7 +133,7 @@ export function polaroidCard(post: Post, options: PolaroidOptions = {}): HTMLEle
         window.clearInterval(timer);
         return;
       }
-      hint.textContent = refundLabel(remaining);
+      hint.textContent = deleteLabel(remaining);
     };
     const timer = window.setInterval(tick, 1000);
     tick();

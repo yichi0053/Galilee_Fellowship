@@ -20,7 +20,7 @@
 | 自由貼文 | free post | `type = 'free'`，每人每週上限 2 篇 |
 | 週界 | week boundary | 台灣時間（`Asia/Taipei`）週一 00:00 |
 | 配額 | quota | 每人每週 1 主題加 2 自由 |
-| 回補期 | refund window | 發布後 10 分鐘內刪除可回補配額 |
+| 可刪除期限 | delete window | 發布後 20 分鐘內可自行刪除，逾期刪不掉（ADR-0021）|
 | 遮蔽姓名 | masked name | 訪客所見的姓名形式，例如「陳小O」 |
 | 軟刪除 | soft delete | 作者刪除，設 `deleted_at`，30 天後硬刪除 |
 | 下架 | hidden | 管理員隱藏，設 `hidden_by_admin` |
@@ -50,5 +50,7 @@ admin       →  membership, posts, themes
 - `posts_public` 與 `rooms_public` 兩個 view **不可**設 `security_invoker = true`，
   它們必須以 owner 權限執行才能繞過底層表的 RLS——這正是訪客唯讀的機制。
 - 週界為 `Asia/Taipei` 週一 00:00，不是 UTC。
+- 逾期後**刪不掉**，不是「刪得掉但不回補」（ADR-0021）。`/join` 的告知同意第 3 點
+  與 `DELETE_WINDOW_MINUTES`、migration 012 的 `interval` 是同一個數字的三份。
 - `body` 是**可為 null** 的（ADR-0019）。讀取端的 null 守衛不可把 `body === null`
   當成壞資料整列跳過——那會讓沒寫內文的貼文從訪客的牆上整個消失。該檢查的是 `title`。

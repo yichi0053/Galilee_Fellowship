@@ -96,8 +96,8 @@ function renderWeekSection(
   grid.className = 'masonry';
   for (const post of posts) {
     // 卡片本身就是連往 /post/:id 的連結（polaroid.ts），這裡不需要點擊處理。
-    // 訪客看不到回補倒數：那是給作者本人的資訊。
-    grid.append(polaroidCard(post, { refundCountdown: mode === 'member' }));
+    // 訪客看不到可刪除倒數：那是給作者本人的資訊。
+    grid.append(polaroidCard(post, { deleteCountdown: mode === 'member' }));
   }
   section.append(grid);
   return section;
@@ -113,7 +113,7 @@ function navActions(viewer: Viewer): HTMLElement[] {
         onSignOut: () => {
           void signOut()
             // 登出後回牆頁而不是留在原地：原地的畫面還畫著成員視角的東西
-            // （回補倒數、發文鈕），重新載入才會換成訪客視角。
+            // （可刪除倒數、發文鈕），重新載入才會換成訪客視角。
             .then(() => window.location.replace('/wall'))
             .catch(() => window.location.replace('/wall'));
         },
@@ -162,7 +162,7 @@ async function main(): Promise<void> {
   }
 
   const mode: Mode = canPost(viewer) ? 'member' : 'guest';
-  // 回補倒數與未遮蔽姓名都需要「我是誰」。訪客與停權者沒有 memberId，一律傳 null。
+  // 可刪除倒數與未遮蔽姓名都需要「我是誰」。訪客與停權者沒有 memberId，一律傳 null。
   const asMemberId =
     viewer.kind === 'member' || viewer.kind === 'admin' ? viewer.memberId : null;
 

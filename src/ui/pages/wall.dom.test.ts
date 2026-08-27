@@ -38,7 +38,7 @@ vi.mock('@modules/themes', () => ({ getThemeForWeek: mocks.getThemeForWeek }));
 const MEMBER: Viewer = { kind: 'member', memberId: 'm-1', displayName: '陳小明', avatarUrl: null };
 const GUEST: Viewer = { kind: 'guest' };
 
-function makePost(index: number, week: WeekStart, refundable: boolean): Post {
+function makePost(index: number, week: WeekStart, deletable: boolean): Post {
   const createdAt = new Date(Date.now() - index * 60_000);
   return {
     id: `p-${week}-${index}` as PostId,
@@ -53,7 +53,7 @@ function makePost(index: number, week: WeekStart, refundable: boolean): Post {
     authorName: '陳小明',
     authorId: 'm-1',
     createdAt,
-    refundableUntil: refundable ? new Date(Date.now() + 8 * 60_000) : null,
+    deletableUntil: deletable ? new Date(Date.now() + 18 * 60_000) : null,
     hiddenByAdmin: false,
   };
 }
@@ -157,9 +157,11 @@ describe('牆頁的成員視角', () => {
     );
   });
 
-  it('顯示 10 分鐘回補倒數（§9.1）', async () => {
+  it('顯示可刪除倒數，用語不帶「回補配額」這種內部詞彙（ADR-0021）', async () => {
     const app = await renderWall(MEMBER);
-    expect(app.querySelector('.polaroid__refund')?.textContent).toMatch(/刪除可回補配額 \d+:\d{2}/);
+    const hint = app.querySelector('.polaroid__deletable')?.textContent ?? '';
+    expect(hint).toMatch(/還可刪除 \d+:\d{2}/);
+    expect(hint).not.toContain('配額');
   });
 
   it('以自己的 memberId 查詢，才拿得到未遮蔽姓名與自己的倒數', async () => {
@@ -186,10 +188,10 @@ describe('牆頁的訪客視角（§10.3）', () => {
     }
   });
 
-  it('不顯示回補倒數：那是給作者本人的資訊', async () => {
+  it('不顯示可刪除倒數：那是給作者本人的資訊', async () => {
     const app = await renderWall(GUEST);
     expect(app.querySelector('.polaroid')).not.toBeNull();
-    expect(app.querySelector('.polaroid__refund')).toBeNull();
+    expect(app.querySelector('.polaroid__deletable')).toBeNull();
   });
 });
 
