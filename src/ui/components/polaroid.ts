@@ -28,6 +28,36 @@ function refundLabel(msRemaining: number): string {
   return `刪除可回補配額 ${mm}:${ss}`;
 }
 
+/**
+ * 卡片顯示框的長寬比上下限。
+ *
+ * 直式手機照是 3:4（0.75），橫式是 4:3（1.33），兩者都落在區間內、完全不裁切。
+ * 夾住兩端是為了極端比例：9:16 的截圖（0.5625）不夾的話會做出一張比鄰居高一倍的
+ * 卡片、獨佔整個欄位；全景照（3:1）則會變成一條看不出內容的細縫。
+ * 超出區間才裁切，而且只裁超出的部分。
+ */
+const RATIO_MIN = 0.62;
+const RATIO_MAX = 1.5;
+
+/**
+ * 以縮圖的實際尺寸決定顯示框的長寬比。
+ *
+ * **為什麼要在瀏覽器端反推**：processImage() 算得出寬高（media/index.ts），
+ * 但 posts 沒有存這兩個欄位，Post 型別也不帶。少了它，wall.css 的
+ * `aspect-ratio: var(--ratio, 1)` 永遠吃 fallback 值 1，於是每張照片都被
+ * object-fit: cover 硬裁成正方形——直式照上下各被切掉一截。
+ *
+ * 代價是縮圖載入的那一刻卡片高度會變一次。要根除得加 migration 把寬高存進
+ * posts、讓伺服器一開始就給出比例；在那之前，會動一下的正確比例
+ * 比永遠正方形的錯誤比例好。
+ */
+function applyRatio(img: HTMLImageElement, card: HTMLElement): void {
+  const { naturalWidth: w, naturalHeight: h } = img;
+  if (w <= 0 || h <= 0) return; // 載入失敗時維持 fallback 的正方形
+  const ratio = Math.min(RATIO_MAX, Math.max(RATIO_MIN, w / h));
+  card.style.setProperty('--ratio', String(ratio));
+}
+
 export function polaroidCard(post: Post, options: PolaroidOptions): HTMLElement {
   const card = document.createElement('button');
   card.type = 'button';
@@ -55,9 +85,11 @@ export function polaroidCard(post: Post, options: PolaroidOptions): HTMLElement 
   // 連 alt 文字都看不到，畫面上只剩一塊灰底，看不出是壞了還是還沒載。
   // complete 的分支涵蓋已在快取中的圖——那種情況 load 事件不會再觸發。
   if (img.complete) {
+    applyRatio(img, card);
     img.dataset['loaded'] = 'true';
   } else {
     const done = (): void => {
+      applyRatio(img, card);
       img.dataset['loaded'] = 'true';
     };
     img.addEventListener('load', done, { once: true });
