@@ -14,8 +14,11 @@
  */
 
 import { IMAGE } from '@config/constants';
-import { fitLongEdge } from './geometry';
-import type { Size } from './geometry';
+import { cropToPixels, defaultCrop, fitLongEdge } from './geometry';
+import type { CropRect, Size } from './geometry';
+
+export { CROP_RATIO_MAX, CROP_RATIO_MIN, clampCrop, defaultCrop } from './geometry';
+export type { CropRect, Size } from './geometry';
 
 /** 處理完成的圖片，尚未上傳 */
 export type ProcessedImage = {
@@ -62,7 +65,13 @@ async function decode(file: File): Promise<ImageBitmap> {
   }
 }
 
-async function render(bitmap: ImageBitmap, size: Size, quality: number): Promise<Blob> {
+async function render(
+  bitmap: ImageBitmap,
+  size: Size,
+  quality: number,
+  /** 只畫原圖的這一塊。省略即整張 */
+  source?: { sx: number; sy: number; sw: number; sh: number },
+): Promise<Blob> {
   const canvas = document.createElement('canvas');
   canvas.width = size.width;
   canvas.height = size.height;
@@ -73,7 +82,11 @@ async function render(bitmap: ImageBitmap, size: Size, quality: number): Promise
   // 縮小倍率大時，瀏覽器預設的取樣會有鋸齒，對縮圖尤其明顯。
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(bitmap, 0, 0, size.width, size.height);
+  if (source) {
+    ctx.drawImage(bitmap, source.sx, source.sy, source.sw, source.sh, 0, 0, size.width, size.height);
+  } else {
+    ctx.drawImage(bitmap, 0, 0, size.width, size.height);
+  }
 
   const blob = await new Promise<Blob | null>((resolve) => {
     canvas.toBlob(resolve, 'image/jpeg', quality);
@@ -87,7 +100,7 @@ async function render(bitmap: ImageBitmap, size: Size, quality: number): Promise
  *
  * 呼叫端不需要知道 EXIF、canvas、或壓縮參數的存在，只要交出一個 File。
  */
-export async function processImage(file: File): Promise<ProcessedImage> {
+export async function processImage(file: File, crop?: CropRect): Promise<ProcessedImage> {
   if (file.size > IMAGE.maxOriginalBytes) throw new ImageTooLargeError(file.size);
   if (!isProbablyImage(file)) throw new UnsupportedImageFormatError(file.type);
 
@@ -95,11 +108,16 @@ export async function processImage(file: File): Promise<ProcessedImage> {
   try {
     const source: Size = { width: bitmap.width, height: bitmap.height };
     const mainSize = fitLongEdge(source, IMAGE.mainLongEdgePx);
-    const thumbSize = fitLongEdge(source, IMAGE.thumbLongEdgePx);
+
+    // ADR-0020：裁切只作用於縮圖，主圖一律保留完整構圖。
+    // 牆上看到的是作者框出來的那一段，點進貼文頁才看到全貌——
+    // 原始構圖不會永久失去，而第一期沒有編輯功能，這一點特別要緊。
+    const region = cropToPixels(crop ?? defaultCrop(source), source);
+    const thumbSize = fitLongEdge({ width: region.sw, height: region.sh }, IMAGE.thumbLongEdgePx);
 
     const [main, thumb] = await Promise.all([
       render(bitmap, mainSize, IMAGE.mainJpegQuality),
-      render(bitmap, thumbSize, IMAGE.thumbJpegQuality),
+      render(bitmap, thumbSize, IMAGE.thumbJpegQuality, region),
     ]);
 
     return { main, thumb, width: mainSize.width, height: mainSize.height };

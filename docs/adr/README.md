@@ -24,3 +24,4 @@
 | [0017](0017-no-docker-local-dev.md) | 開發機無 Docker，改用第二個 cloud project | 無法離線開發；pgTAP 不可用 |
 | [0018](0018-single-project-promoted-to-production.md) | 現有 Supabase 專案直接轉正，不另開正式專案 | 沒有可以弄壞的環境；verify:rls 停用 |
 | [0019](0019-title-and-body.md) | 貼文拆成標題與內文，牆頁只顯示標題 | 牆上讀不到內文，需逐則點入 |
+| [0020](0020-thumbnail-crop.md) | 上傳時可拖曳決定縮圖範圍，原圖完整保留 | 發文多一步；牆上與貼文頁構圖不同 |

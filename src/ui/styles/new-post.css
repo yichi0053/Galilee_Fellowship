@@ -120,3 +120,75 @@
 }
 
 .counter[data-invalid="true"] { color: var(--pin); font-weight: 600; }
+
+/* ------------------------------------------------------------ 裁切框 --- */
+/* §9.3 / ADR-0020：拖曳決定這張照片在牆上顯示哪一段。只影響縮圖，原圖完整保留。 */
+
+.crop {
+  position: relative;
+  display: block;
+  margin-top: 0.6rem;
+  line-height: 0;
+  border-radius: 0.4rem;
+  overflow: hidden;
+  /* 拖曳時不要讓瀏覽器把手勢解讀成捲動或縮放。
+     少了這一行，手機上拖框會變成捲頁面，框幾乎動不了。 */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.crop__img { display: block; width: 100%; height: auto; }
+
+/* 框以外壓暗。用 clip-path 挖洞而不是疊四個 div：少三個節點也少三次版面計算。 */
+.crop__shade {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 55%);
+  pointer-events: none;
+}
+
+.crop__frame {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid #fffdf7;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 35%);
+  cursor: move;
+  touch-action: none;
+}
+
+.crop__frame:focus-visible { outline: 3px solid var(--pin); outline-offset: 2px; }
+
+.crop__handle {
+  position: absolute;
+  /* 44 px 是可觸及的最小尺寸。視覺上的白點只有 12 px，
+     但可按範圍要大得多，否則手指根本抓不到角落。 */
+  width: 44px;
+  height: 44px;
+  touch-action: none;
+}
+
+.crop__handle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: #fffdf7;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 45%);
+}
+
+.crop__handle--nw { top: -22px; left: -22px; cursor: nwse-resize; }
+.crop__handle--ne { top: -22px; right: -22px; cursor: nesw-resize; }
+.crop__handle--sw { bottom: -22px; left: -22px; cursor: nesw-resize; }
+.crop__handle--se { bottom: -22px; right: -22px; cursor: nwse-resize; }
+
+.crop__hint {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}

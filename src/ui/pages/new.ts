@@ -16,6 +16,7 @@ import { BODY_MAX_LENGTH, IMAGE, QUOTA, TITLE_MAX_LENGTH, TITLE_MIN_LENGTH } fro
 import { getViewer } from '@modules/membership';
 import type { Viewer } from '@modules/membership';
 import { previewUrl } from '@modules/media';
+import { createCropFrame } from '@ui/components/crop-frame';
 import { createPost, getMyQuota } from '@modules/posts';
 import type { PostKind, QuotaState } from '@modules/posts';
 import { getCurrentTheme } from '@modules/themes';
@@ -172,11 +173,15 @@ function postForm(
   );
   imageField.append(imageLabel, picker);
 
+  // 預覽同時是裁切介面（ADR-0020）。框住的那一段就是牆上會看到的，
+  // 原圖完整保留給 /post/:id。
   const preview = el('div', 'preview');
   preview.hidden = true;
-  const previewImg = el('img');
-  previewImg.alt = '預覽';
-  preview.append(previewImg);
+  const cropFrame = createCropFrame();
+  preview.append(cropFrame.element);
+  preview.append(
+    el('span', 'crop__hint', '拖曳白框決定這張照片在牆上顯示的範圍。點進貼文仍會看到完整照片。'),
+  );
   imageField.append(preview);
 
   let objectUrl: string | null = null;
@@ -194,11 +199,30 @@ function postForm(
       return;
     }
     objectUrl = previewUrl(file);
-    previewImg.src = objectUrl;
-    preview.hidden = false;
     pickerText.textContent = '換一張';
+
+    // 裁切框要知道原圖的長寬比才算得出合法的預設框，所以等圖載到再重設。
+    // 這裡量的是 naturalWidth 而非顯示尺寸——框存的是 0 至 1 的比例，
+    // 而 clampCrop 判定比例時需要原圖真正的長寬比。
+    const probe = new Image();
+    probe.addEventListener(
+      'load',
+      () => {
+        cropFrame.reset({ width: probe.naturalWidth, height: probe.naturalHeight }, probe.src);
+        preview.hidden = false;
+      },
+      { once: true },
+    );
+    // 載不到就直接顯示，讓後續的 processImage 去丟出它自己的錯誤訊息——
+    // 那些訊息（HEIC 的處理指示等）比「預覽失敗」有用得多。
+    probe.addEventListener('error', () => { preview.hidden = false; }, { once: true });
+    probe.src = objectUrl;
   });
-  window.addEventListener('pagehide', releasePreview);
+
+  window.addEventListener('pagehide', () => {
+    releasePreview();
+    cropFrame.dispose();
+  });
 
   // ---- 標題（ADR-0019：牆頁卡片上唯一的文字）----
   const titleField = el('div', 'paper-field');
@@ -293,7 +317,7 @@ function postForm(
 
     void (async () => {
       try {
-        await createPost({ kind, title, body, file }, memberId);
+        await createPost({ kind, title, body, file, crop: cropFrame.getCrop() }, memberId);
         releasePreview();
         window.location.replace('/wall');
       } catch (error: unknown) {

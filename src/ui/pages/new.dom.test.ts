@@ -71,6 +71,9 @@ async function submit(app: HTMLElement, title: string, body = ''): Promise<void>
   await new Promise((r) => setTimeout(r, 0));
 }
 
+/** 預覽圖沒載入時裁切框的初始值：整張都要（ADR-0020） */
+const FULL_CROP = { x: 0, y: 0, width: 1, height: 1 };
+
 const errorText = (app: HTMLElement): string =>
   app.querySelector('.paper-message--error')?.textContent ?? '';
 
@@ -165,7 +168,9 @@ describe('/post/new 的送出檢查', () => {
     await submit(app, '今天的晚餐');
 
     expect(mocks.createPost).toHaveBeenCalledWith(
-      { kind: 'theme', title: '今天的晚餐', body: '', file },
+      // crop 是「整張都要」：這個測試環境裡預覽圖不會真的載入，
+      // 裁切框因此停在初始值。那正是預期的退路——載不到圖就不裁（ADR-0020）。
+      { kind: 'theme', title: '今天的晚餐', body: '', file, crop: FULL_CROP },
       'm-1',
     );
     expect(window.location.replace).toHaveBeenCalledWith('/wall');
@@ -183,6 +188,7 @@ describe('/post/new 的送出檢查', () => {
         title: '今天的晚餐',
         body: '跟小組一起吃的，很久沒這麼熱鬧。',
         file,
+        crop: FULL_CROP,
       },
       'm-1',
     );

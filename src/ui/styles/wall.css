@@ -63,7 +63,18 @@ body {
   padding: 0 1rem;
   background: rgb(38 32 26 / 92%);
   color: #f6f1e7;
-  backdrop-filter: blur(6px);
+  /*
+   * **不要加回 backdrop-filter。**
+   *
+   * 它會建立層疊上下文，把整個導覽列子樹關進去——包含大頭貼選單的下拉清單。
+   * 清單寫了 z-index: 30 也翻不出這個上下文，而 .wall-nav 本身是靜態定位、
+   * 沒有 z-index，於是整段畫在 .week-bar（z-index: 20 的定位元素）底下：
+   * 點開選單會被週次 bar 蓋住。
+   *
+   * 而且它現在也沒有作用了。導覽列自從不再 sticky（見上方「頂部三層」）之後，
+   * 就沒有任何東西會從它底下捲過去，模糊的只是靜止的背景——
+   * 白付一份手機的 GPU 開銷。
+   */
 }
 
 .wall-nav__title { font-size: 1rem; font-weight: 600; margin: 0; }
@@ -407,7 +418,14 @@ body {
 /* §10.2 / ADR-0011：右上角原本是一條寫死的「我的貼文」，每多一個功能就得跟
    手機的導覽列搶橫向空間。改為大頭貼加下拉清單，新功能是往清單加一列。 */
 
-.user-menu { position: relative; }
+/*
+ * 自己建立一個層疊上下文，明確地站在 .week-bar（20）與 FAB（30）之上。
+ * 下拉清單會往下展開、蓋過週次 bar 所在的位置，這是刻意的。
+ */
+.user-menu {
+  position: relative;
+  z-index: 40;
+}
 
 .user-menu__trigger {
   display: block;

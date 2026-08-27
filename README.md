@@ -6,7 +6,7 @@
 - **[CONTEXT.md](CONTEXT.md)** — 共享語言與架構不變條件。改動程式前先讀。
 - **[docs/SETUP.md](docs/SETUP.md)** — 人工前置步驟（Supabase、Google OAuth、Cloudflare Pages）。
 - **[docs/OPERATIONS.md](docs/OPERATIONS.md)** — 維運與復原路徑。
-- **[docs/adr/](docs/adr/README.md)** — 19 則架構決策紀錄。
+- **[docs/adr/](docs/adr/README.md)** — 20 則架構決策紀錄。
 
 ## 快速開始
 

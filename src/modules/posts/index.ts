@@ -21,6 +21,7 @@ import { db, ROOM_ID } from '@db/client';
 import { currentWeekStart, parseWeekStart } from '@domain/week';
 import type { WeekStart } from '@domain/week';
 import { processImage } from '@modules/media';
+import type { CropRect } from '@modules/media';
 import { canPost, getQuotaFor, refundableUntil } from '@modules/quota';
 import type { PostKind, QuotaState } from '@modules/quota';
 import { getThemeForWeek } from '@modules/themes';
@@ -64,6 +65,11 @@ export type NewPost = {
   /** 選填。空白會在此轉為 null（ADR-0019：兩種「沒有內文」的表示法不並存） */
   readonly body?: string;
   readonly file: File;
+  /**
+   * 縮圖的裁切範圍（ADR-0020）。省略即由 media 自行取預設框。
+   * 只影響縮圖，主圖一律完整。
+   */
+  readonly crop?: CropRect;
 };
 
 export class QuotaExceededError extends Error {}
@@ -113,7 +119,7 @@ export async function createPost(input: NewPost, asMemberId: string): Promise<Po
   }
 
   // 壓縮、剝除 EXIF（含 GPS）、產生縮圖。呼叫端不需要知道這些存在。
-  const processed = await processImage(input.file);
+  const processed = await processImage(input.file, input.crop);
 
   const uid = await currentUserId();
   const postId = crypto.randomUUID();
