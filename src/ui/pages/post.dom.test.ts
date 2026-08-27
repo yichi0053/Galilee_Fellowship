@@ -114,8 +114,12 @@ describe('/post/:id 的可見性', () => {
     const app = await render({ post: makePost({ deletableUntil: null }) });
     expect(deleteButton(app)).toBeNull();
     const note = app.querySelector('.owner__countdown')?.textContent ?? '';
+    expect(note).toContain('刪除時限已過');
     expect(note).toContain('無法自行刪除');
     expect(note).toContain('團契負責人');
+    // 「配額」「回補」是內部詞彙，不該出現在使用者看得到的字裡。
+    expect(note).not.toContain('配額');
+    expect(note).not.toContain('回補');
   });
 
   it('被下架的貼文對作者顯示說明，而不是安靜地照常呈現（§9.5）', async () => {

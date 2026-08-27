@@ -104,7 +104,7 @@ describe('/post/new 的身分判斷', () => {
   });
 });
 
-describe('/post/new 的配額與主題（§9.1、§9.6）', () => {
+describe('/post/new 的可發文次數與主題（§9.1、§9.6）', () => {
   it('顯示兩種配額的剩餘數', async () => {
     const app = await render({ remaining: { theme: 1, free: 2 } });
     const counts = Array.from(app.querySelectorAll('.quota__count')).map((n) => n.textContent);
@@ -133,7 +133,7 @@ describe('/post/new 的配額與主題（§9.1、§9.6）', () => {
   it('兩種都用完時完全不給表單，而不是給一張送出必定失敗的表單', async () => {
     const app = await render({ remaining: { theme: 0, free: 0 } });
     expect(app.querySelector('form')).toBeNull();
-    expect(app.textContent).toContain('配額都用完了');
+    expect(app.textContent).toContain('可發文次數都用完了');
   });
 });
 

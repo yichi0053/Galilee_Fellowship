@@ -114,7 +114,7 @@ function postForm(
 
   if (!firstEnabled) {
     box.append(
-      message('info', '本週的配額都用完了。下週一之後就會重置，先去看看大家貼了什麼吧。'),
+      message('info', '本週的可發文次數都用完了。下週一之後就會重置，先去看看大家貼了什麼吧。'),
     );
     box.append(backLink());
     return box;
@@ -370,7 +370,7 @@ async function main(): Promise<void> {
     app.replaceChildren(postForm(viewer.memberId, quota.remaining, theme));
   } catch (error: unknown) {
     const box = card('載入失敗');
-    box.append(message('error', error instanceof Error ? error.message : '無法取得你的配額。'));
+    box.append(message('error', error instanceof Error ? error.message : '無法取得你的可發文次數。'));
     box.append(backLink());
     app.replaceChildren(box);
   }

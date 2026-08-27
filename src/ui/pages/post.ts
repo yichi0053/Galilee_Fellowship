@@ -14,7 +14,6 @@ import '@ui/styles/paper.css';
 import '@ui/styles/post-detail.css';
 
 import { hidePost, unhidePost } from '@modules/admin';
-import { DELETE_WINDOW_MINUTES } from '@config/constants';
 import { getViewer } from '@modules/membership';
 import type { Viewer } from '@modules/membership';
 import { deletePost, getPost } from '@modules/posts';
@@ -94,8 +93,10 @@ function ownerActions(post: Post): HTMLElement {
     } else {
       // ADR-0021：逾期就刪不掉了。按鈕直接移除而不是停用——
       // 停用的按鈕還在那裡，會讓人一直試著點它。
-      countdown.textContent =
-        `已超過 ${DELETE_WINDOW_MINUTES} 分鐘，無法自行刪除。需要移除請聯絡團契負責人。`;
+      // 用語與 ADR-0021 一致：不講「配額」與「回補」，那是內部詞彙。
+      // 但不能寫成「現在刪除不會返還可發文次數」——逾期是**刪不掉**，
+      // 不是刪得掉但沒有好處，那樣寫會讓人一直去按一顆已經不存在的按鈕。
+      countdown.textContent = '刪除時限已過，無法自行刪除。需要移除請聯絡團契負責人。';
       countdown.dataset['expired'] = 'true';
       remove.remove();
       confirmRow?.remove();
@@ -163,7 +164,7 @@ function adminActions(post: Post): HTMLElement {
       'owner__countdown',
       hidden
         ? '這則目前已下架，只有作者看得到。'
-        : '下架之後只有作者看得到，照片與資料都還在，配額也不受影響。',
+        : '下架後資料仍存在，但只有作者可讀。不影響可發文次數。',
     ),
   );
 
