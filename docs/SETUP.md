@@ -151,8 +151,9 @@ Data Access、Clients 四個分頁。
 
    先開著 `npm run dev` 會比較好看，但**不開也算成功** —— 要看的是網址列有沒有
    `#access_token=`，那代表 Google ↔ Supabase 的握手打通了。
-   導回後頁面顯示「載入中…」是正常的：那是 `index.html` 的靜態佔位文字，
-   `src/ui/pages/index.ts` 要到階段五才實作。
+   `npm run dev` 有開的話，導回後會停在首頁一瞬間、然後自動跳去 `/wall`——
+   那是 `src/ui/pages/index.ts` 的導流（Site URL 就是這條路徑的落地點）。
+   沒開 dev server 的話瀏覽器會顯示連不上，那不影響本步驟的判定。
 
    若警告頁真的出現，回頭檢查 Data Access 是不是混進了第四個 scope。
 

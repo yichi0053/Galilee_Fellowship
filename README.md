@@ -67,4 +67,4 @@ supabase/
 | 二 資料層與 RLS | T-02、T-03 | ✅ migration 已套用至 dev 專案，`verify:rls` 21 項全過 |
 | 三 Tracer bullet | T-04、T-07 | ✅ `auth`／`membership` 實作完成，join-room 已部署並冒煙測試（頁面於階段五）|
 | 四 深模組補完 | T-05、T-06 | ✅ 純邏輯完成，47 項測試全過 |
-| 五 牆頁與其餘頁面 | T-08 至 T-13 | ✅ 六個頁面全部完成（`/wall`、`/join`、`/post/new`、`/post/:id`、`/member/me`、`/admin`）|
+| 五 牆頁與其餘頁面 | T-08 至 T-13 | ✅ 七個頁面全部完成（`/`、`/wall`、`/join`、`/post/new`、`/post/:id`、`/member/me`、`/admin`）|
