@@ -13,6 +13,7 @@ function makePost(over: Partial<Post> = {}): Post {
   return {
     id: 'p-1' as PostId,
     kind: 'free',
+    title: '測試標題',
     body: '測試貼文，長度要過得了十個字的下限。',
     imageUrl: 'https://example.test/i.jpg',
     thumbUrl: 'https://example.test/t.jpg',
@@ -100,5 +101,26 @@ describe('polaroid 顯示框長寬比', () => {
     img.dispatchEvent(new Event('error'));
     expect(card.style.getPropertyValue('--ratio')).toBe('');
     expect(img.dataset['loaded']).toBe('true');
+  });
+});
+
+describe('polaroid 卡片上的文字（ADR-0019）', () => {
+  it('顯示標題而不是內文——內文在 /post/:id', () => {
+    const card = polaroidCard(
+      { ...makePost(), title: '今天的晚餐', body: '跟小組一起吃的，很久沒這麼熱鬧。' },
+      { onOpen: vi.fn() },
+    );
+    expect(card.querySelector('.polaroid__title')?.textContent).toBe('今天的晚餐');
+    expect(card.textContent).not.toContain('很久沒這麼熱鬧');
+  });
+
+  it('alt 用標題：讀螢幕軟體在牆上逐張唸 300 字內文會讓人放棄', () => {
+    const card = polaroidCard({ ...makePost(), title: '今天的晚餐' }, { onOpen: vi.fn() });
+    expect(card.querySelector<HTMLImageElement>('.polaroid__img')?.alt).toBe('今天的晚餐');
+  });
+
+  it('沒有內文的貼文照樣畫得出來', () => {
+    const card = polaroidCard({ ...makePost(), body: null }, { onOpen: vi.fn() });
+    expect(card.querySelector('.polaroid__title')?.textContent).toBe('測試標題');
   });
 });

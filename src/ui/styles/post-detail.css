@@ -69,3 +69,12 @@
   line-height: 1.55;
   margin: 0 0 1rem;
 }
+
+/* ADR-0019：詳細頁的標題。照片之上，是這一頁的 h1。 */
+.post-title {
+  margin: 0 0 0.6rem;
+  font-family: var(--font-hand);
+  font-size: 1.35rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}

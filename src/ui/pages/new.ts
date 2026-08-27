@@ -12,7 +12,7 @@ import '@ui/styles/wall.css';
 import '@ui/styles/paper.css';
 import '@ui/styles/new-post.css';
 
-import { BODY_MAX_LENGTH, BODY_MIN_LENGTH, IMAGE, QUOTA } from '@config/constants';
+import { BODY_MAX_LENGTH, IMAGE, QUOTA, TITLE_MAX_LENGTH, TITLE_MIN_LENGTH } from '@config/constants';
 import { getViewer } from '@modules/membership';
 import type { Viewer } from '@modules/membership';
 import { previewUrl } from '@modules/media';
@@ -200,11 +200,44 @@ function postForm(
   });
   window.addEventListener('pagehide', releasePreview);
 
-  // ---- 內文 ----
+  // ---- 標題（ADR-0019：牆頁卡片上唯一的文字）----
+  const titleField = el('div', 'paper-field');
+  const titleLabel = el('label', 'paper-field__label', '標題');
+  titleLabel.htmlFor = 'post-title';
+  titleField.append(titleLabel);
+
+  // 用 input 而不是 textarea：這一格就是要一行。textarea 會讓人以為可以換行，
+  // 而換行字元在牆上的卡片裡不會有任何視覺效果，只會讓人困惑。
+  const titleInput = el('input', 'paper-input');
+  titleInput.id = 'post-title';
+  titleInput.type = 'text';
+  titleInput.maxLength = TITLE_MAX_LENGTH;
+  titleInput.placeholder = '一句話說這是什麼';
+  titleField.append(titleInput);
+
+  const titleCounter = el('span', 'counter');
+  const syncTitle = (): void => {
+    const n = titleInput.value.trim().length;
+    titleCounter.textContent = `${n} / ${TITLE_MAX_LENGTH}`;
+    titleCounter.dataset['invalid'] = String(n > 0 && n < TITLE_MIN_LENGTH);
+  };
+  syncTitle();
+  titleInput.addEventListener('input', syncTitle);
+  titleField.append(titleCounter);
+
+  // ---- 內文（選填，只在 /post/:id 顯示）----
   const bodyField = el('div', 'paper-field');
-  const bodyLabel = el('label', 'paper-field__label', '寫一句話');
+  const bodyLabel = el('label', 'paper-field__label', '想多說一點（選填）');
   bodyLabel.htmlFor = 'post-body';
   bodyField.append(bodyLabel);
+
+  bodyField.append(
+    el(
+      'span',
+      'paper-field__hint',
+      '這一段不會出現在牆上，點進貼文才看得到。留白也可以。',
+    ),
+  );
 
   const bodyInput = el('textarea', 'body-input');
   bodyInput.id = 'post-body';
@@ -215,8 +248,7 @@ function postForm(
   const counter = el('span', 'counter');
   const syncCounter = (): void => {
     const n = bodyInput.value.trim().length;
-    counter.textContent = `${n} / ${BODY_MAX_LENGTH}（至少 ${BODY_MIN_LENGTH} 字）`;
-    counter.dataset['invalid'] = String(n > 0 && n < BODY_MIN_LENGTH);
+    counter.textContent = `${n} / ${BODY_MAX_LENGTH}`;
   };
   syncCounter();
   bodyInput.addEventListener('input', syncCounter);
@@ -225,7 +257,7 @@ function postForm(
   const submit = el('button', 'paper-button', '貼上牆');
   submit.type = 'submit';
 
-  form.append(kindField, imageField, bodyField, submit);
+  form.append(kindField, imageField, titleField, bodyField, submit);
   box.append(form);
 
   let errorNode: HTMLElement | null = null;
@@ -243,14 +275,17 @@ function postForm(
     const kind = (form.querySelector<HTMLInputElement>('input[name="kind"]:checked')?.value ??
       firstEnabled.kind) as PostKind;
     const file = fileInput.files?.[0];
+    const title = titleInput.value.trim();
     const body = bodyInput.value.trim();
 
     // 這些在 createPost 與資料庫都會再驗一次。這裡擋下來只是為了少一趟往返，
     // 尤其是圖片——讓人壓縮上傳完才被退件太浪費了。
     if (!file) return showError('請先選一張照片。');
-    if (body.length < BODY_MIN_LENGTH) {
-      return showError(`還差 ${BODY_MIN_LENGTH - body.length} 個字。`);
+    if (title.length === 0) return showError('請寫一個標題。');
+    if (title.length < TITLE_MIN_LENGTH) {
+      return showError(`標題至少 ${TITLE_MIN_LENGTH} 個字。`);
     }
+    // 內文選填，不擋長度下限。上限由 maxLength 擋在輸入階段。
 
     submit.disabled = true;
     // 手機上壓縮加兩次上傳可能要好幾秒，沒有回饋的話使用者會重複按。
@@ -258,7 +293,7 @@ function postForm(
 
     void (async () => {
       try {
-        await createPost({ kind, body, file }, memberId);
+        await createPost({ kind, title, body, file }, memberId);
         releasePreview();
         window.location.replace('/wall');
       } catch (error: unknown) {

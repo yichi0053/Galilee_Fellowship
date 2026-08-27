@@ -210,6 +210,9 @@ async function createPost(memberId: string, body: string, createdAt?: Date): Pro
       type: 'free',
       image_path: `${memberId}/x.jpg`,
       thumb_path: `${memberId}/x_thumb.jpg`,
+      // migration 011：title 為 not null 且 2 至 20 字。
+      // 取 body 前 20 字，與該 migration 回填既有貼文的做法一致。
+      title: body.slice(0, 20),
       body,
       ...(createdAt ? { created_at: createdAt.toISOString() } : {}),
       // §7.3：貼文歸屬於「週」而不是「日」。原本這裡填的是今天的日期，
@@ -451,6 +454,9 @@ async function main(): Promise<void> {
       ['deleted_at', null, '自行還原已刪除的貼文'],
       ['rotation_deg', 3, '事後重擲旋轉角（§11.2 說發布時決定一次）'],
       ['week_start_date', '2020-01-06', '把貼文搬到別週，繞過當週配額'],
+      // migration 011 刻意沒有把 title 加進 010 的 update grant：
+      // 第一期沒有編輯功能，沒有任何路徑需要更新它。
+      ['title', '被改掉的標題', '在沒有編輯功能的情況下改動牆上的文字'],
     ] as const) {
       const r = await rest(asA, `posts?id=eq.${owned}`, {
         method: 'PATCH',

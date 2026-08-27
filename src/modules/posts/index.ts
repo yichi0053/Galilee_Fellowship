@@ -11,10 +11,11 @@
  */
 import {
   BODY_MAX_LENGTH,
-  BODY_MIN_LENGTH,
   IMAGE_CACHE_SECONDS,
   POST_IMAGES_BUCKET,
   ROTATION_DEG_RANGE,
+  TITLE_MAX_LENGTH,
+  TITLE_MIN_LENGTH,
 } from '@config/constants';
 import { db, ROOM_ID } from '@db/client';
 import { currentWeekStart, parseWeekStart } from '@domain/week';
@@ -36,7 +37,10 @@ export type PostId = string & { readonly __brand: 'PostId' };
 export type Post = {
   readonly id: PostId;
   readonly kind: PostKind;
-  readonly body: string;
+  /** §9.2 / ADR-0019：牆頁卡片上唯一的文字，2 至 20 字，必填 */
+  readonly title: string;
+  /** ADR-0019：選填的內文，只在 /post/:id 顯示。沒有內文時為 null，不是空字串 */
+  readonly body: string | null;
   readonly imageUrl: string;
   readonly thumbUrl: string;
   readonly rotationDeg: number;
@@ -56,11 +60,14 @@ export type Post = {
 
 export type NewPost = {
   readonly kind: PostKind;
-  readonly body: string;
+  readonly title: string;
+  /** 選填。空白會在此轉為 null（ADR-0019：兩種「沒有內文」的表示法不並存） */
+  readonly body?: string;
   readonly file: File;
 };
 
 export class QuotaExceededError extends Error {}
+export class TitleLengthError extends Error {}
 export class BodyLengthError extends Error {}
 /** 本週尚未設定主題時無法發主題貼文（§9.6：過期主題不可補發） */
 export class NoThemeError extends Error {}
@@ -71,12 +78,20 @@ export class NoThemeError extends Error {}
  * `asMemberId` 為呼叫端的 room_members.id（同 listWeek，§12.3 不允許相依於 membership）。
  */
 export async function createPost(input: NewPost, asMemberId: string): Promise<Post> {
-  const body = input.body.trim();
-  if (body.length < BODY_MIN_LENGTH || body.length > BODY_MAX_LENGTH) {
-    throw new BodyLengthError(
-      `內文需 ${BODY_MIN_LENGTH} 至 ${BODY_MAX_LENGTH} 字，目前 ${body.length} 字。`,
+  const title = input.title.trim();
+  if (title.length < TITLE_MIN_LENGTH || title.length > TITLE_MAX_LENGTH) {
+    throw new TitleLengthError(
+      `標題需 ${TITLE_MIN_LENGTH} 至 ${TITLE_MAX_LENGTH} 字，目前 ${title.length} 字。`,
     );
   }
+
+  // 選填：trim 之後為空就是 null。migration 011 的 check 只認 null 或 1 至 300 字，
+  // 送空字串進去會被資料庫擋下來，而那個錯誤訊息使用者看不懂。
+  const body = input.body?.trim() ?? '';
+  if (body.length > BODY_MAX_LENGTH) {
+    throw new BodyLengthError(`內文最多 ${BODY_MAX_LENGTH} 字，目前 ${body.length} 字。`);
+  }
+  const bodyOrNull = body.length === 0 ? null : body;
 
   // §9.6：貼文一律歸屬於發布當下的週次，不接受指定。過期主題不可補發。
   const week = currentWeekStart();
@@ -118,11 +133,12 @@ export async function createPost(input: NewPost, asMemberId: string): Promise<Po
       theme_id: themeId,
       image_path: imagePath,
       thumb_path: thumbPath,
-      body,
+      title,
+      body: bodyOrNull,
       rotation_deg: randomRotation(),
       week_start_date: week,
     })
-    .select('id, type, body, image_path, thumb_path, rotation_deg, week_start_date, created_at')
+    .select('id, type, title, body, image_path, thumb_path, rotation_deg, week_start_date, created_at')
     .single();
 
   if (error) {
@@ -135,6 +151,7 @@ export async function createPost(input: NewPost, asMemberId: string): Promise<Po
   return toPost({
     id: data.id,
     type: data.type,
+    title: data.title,
     body: data.body,
     imagePath: data.image_path,
     thumbPath: data.thumb_path,
@@ -209,7 +226,7 @@ export async function listWeek(
 async function listWeekAsGuest(week: WeekStart): Promise<ReadonlyArray<Post>> {
   const { data, error } = await db
     .from('posts_public')
-    .select('id, type, thumb_path, image_path, body, rotation_deg, week_start_date, created_at, display_name')
+    .select('id, type, thumb_path, image_path, title, body, rotation_deg, week_start_date, created_at, display_name')
     .eq('room_id', ROOM_ID)
     .eq('week_start_date', week)
     .order('created_at', { ascending: false });
@@ -225,7 +242,9 @@ async function listWeekAsGuest(week: WeekStart): Promise<ReadonlyArray<Post>> {
     if (
       row.id === null ||
       row.type === null ||
-      row.body === null ||
+      // body 不在這裡：ADR-0019 起內文是選填的，null 是正常值。
+      // 把它列進來的話，沒寫內文的貼文會從訪客的牆上整個消失。
+      row.title === null ||
       row.image_path === null ||
       row.thumb_path === null ||
       row.rotation_deg === null ||
@@ -240,6 +259,7 @@ async function listWeekAsGuest(week: WeekStart): Promise<ReadonlyArray<Post>> {
       toPost({
         id: row.id,
         type: row.type,
+        title: row.title,
         body: row.body,
         imagePath: row.image_path,
         thumbPath: row.thumb_path,
@@ -342,12 +362,13 @@ export async function listMine(asMemberId: string): Promise<ReadonlyArray<Post>>
  * 少一處漏掉 room_members 的 join 就會少掉未遮蔽的姓名。
  */
 const MEMBER_SELECT =
-  'id, type, thumb_path, image_path, body, rotation_deg, week_start_date, created_at, author_id, hidden_by_admin, room_members!inner(display_name)';
+  'id, type, thumb_path, image_path, title, body, rotation_deg, week_start_date, created_at, author_id, hidden_by_admin, room_members!inner(display_name)';
 
 type MemberRow = {
   id: string;
   type: PostKind;
-  body: string;
+  title: string;
+  body: string | null;
   image_path: string;
   thumb_path: string;
   rotation_deg: number;
@@ -362,6 +383,7 @@ function fromMemberRow(row: MemberRow, asMemberId: string): Post {
   return toPost({
     id: row.id,
     type: row.type,
+    title: row.title,
     body: row.body,
     imagePath: row.image_path,
     thumbPath: row.thumb_path,
@@ -383,7 +405,8 @@ function publicUrl(path: string): string {
 type PostRow = {
   id: string;
   type: PostKind;
-  body: string;
+  title: string;
+  body: string | null;
   imagePath: string;
   thumbPath: string;
   rotationDeg: number;
@@ -405,6 +428,7 @@ function toPost(row: PostRow): Post {
   return {
     id: row.id as PostId,
     kind: row.type,
+    title: row.title,
     body: row.body,
     imageUrl: publicUrl(row.imagePath),
     thumbUrl: publicUrl(row.thumbPath),
@@ -429,7 +453,7 @@ export async function getPost(id: PostId, asMemberId: string | null): Promise<Po
     const { data, error } = await db
       .from('posts_public')
       .select(
-        'id, type, thumb_path, image_path, body, rotation_deg, week_start_date, created_at, display_name',
+        'id, type, thumb_path, image_path, title, body, rotation_deg, week_start_date, created_at, display_name',
       )
       .eq('id', id)
       .maybeSingle();
@@ -439,7 +463,8 @@ export async function getPost(id: PostId, asMemberId: string | null): Promise<Po
       !data ||
       data.id === null ||
       data.type === null ||
-      data.body === null ||
+      // 同上：body 為 null 是「沒有內文」，不是壞資料。
+      data.title === null ||
       data.image_path === null ||
       data.thumb_path === null ||
       data.rotation_deg === null ||
@@ -453,6 +478,7 @@ export async function getPost(id: PostId, asMemberId: string | null): Promise<Po
     return toPost({
       id: data.id,
       type: data.type,
+      title: data.title,
       body: data.body,
       imagePath: data.image_path,
       thumbPath: data.thumb_path,

@@ -70,7 +70,7 @@ export function createLightbox(): Lightbox {
     // 縮圖已在牆上載入過，先擺著當佔位，主圖到位再換掉，
     // 避免點開後盯著一片空白（§9.4：主圖是按需載入，不隨牆頁一起下載）。
     img.src = post.thumbUrl;
-    img.alt = post.body;
+    img.alt = post.title;
     const full = new Image();
     full.decoding = 'async';
     full.addEventListener('load', () => {
@@ -78,7 +78,9 @@ export function createLightbox(): Lightbox {
     });
     full.src = post.imageUrl;
 
-    caption.textContent = post.body;
+    // 燈箱是「快速翻看」的介面，放的是標題。內文一律在 /post/:id，
+    // 右下角的「詳細」連結過去——否則 300 字的內文會蓋掉半張照片。
+    caption.textContent = post.title;
     counter.textContent = `${post.authorName} · ${stampFormat.format(post.createdAt)}（${cursor + 1}/${items.length}）`;
     detail.href = `/post/${post.id}`;
     prevBtn.disabled = cursor === 0;

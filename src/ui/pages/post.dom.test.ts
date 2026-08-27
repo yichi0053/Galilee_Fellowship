@@ -31,6 +31,7 @@ function makePost(over: Partial<Post> = {}): Post {
   return {
     id: POST_ID as PostId,
     kind: 'free',
+    title: '測試標題',
     body: '宿舍樓下那攤滷味，老闆記得我不吃香菜。',
     imageUrl: 'https://example.test/i.jpg',
     thumbUrl: 'https://example.test/t.jpg',
@@ -195,5 +196,25 @@ describe('/post/:id 的管理員操作（§9.5）', () => {
     const app = await render({ viewer: ADMIN, post: makePost({ authorId: 'm-9' }) });
     expect(app.textContent).toContain('刪除這則貼文');
     expect(app.textContent).toContain('下架這則貼文');
+  });
+});
+
+describe('/post/:id 的標題與內文（ADR-0019）', () => {
+  it('標題是這一頁的 h1，排在照片之上', async () => {
+    const app = await render({ post: makePost({ title: '今天的晚餐' }) });
+    const h1 = app.querySelector('.post-title');
+    expect(h1?.tagName).toBe('H1');
+    expect(h1?.textContent).toBe('今天的晚餐');
+  });
+
+  it('沒有內文時整段不渲染，不留一個空的段落把版面撐開', async () => {
+    const app = await render({ post: makePost({ body: null }) });
+    expect(app.querySelector('.post-body')).toBeNull();
+    expect(app.querySelector('.post-title')).not.toBeNull();
+  });
+
+  it('有內文時照常顯示', async () => {
+    const app = await render({ post: makePost({ body: '跟小組一起吃的。' }) });
+    expect(app.querySelector('.post-body')?.textContent).toBe('跟小組一起吃的。');
   });
 });

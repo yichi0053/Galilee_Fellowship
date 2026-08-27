@@ -293,12 +293,17 @@ body {
 
 .polaroid__img[data-loaded="true"] { opacity: 1; }
 
-.polaroid__body {
+/*
+ * ADR-0019：卡片上只有標題，內文在 /post/:id。
+ *
+ * 上限 20 字，在這個寬度下最多換行一次，所以不需要截斷或 ellipsis——
+ * 卡片高度因此只由照片比例決定，這正是換掉整段內文的理由。
+ */
+.polaroid__title {
   margin: 0.55rem 0.15rem 0;
   font-family: var(--font-hand);
-  font-size: 0.86rem;
-  line-height: 1.5;
-  /* §9.2：上限 100 字，在卡片下方可完整顯示不需截斷 */
+  font-size: 0.92rem;
+  line-height: 1.45;
   overflow-wrap: anywhere;
 }
 

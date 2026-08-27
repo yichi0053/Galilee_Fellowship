@@ -12,9 +12,22 @@ export const QUOTA = {
 /** §9.1 / ADR-0010：回補期 10 分鐘 */
 export const REFUND_WINDOW_MINUTES = 10;
 
-/** §9.2：貼文文字長度 */
-export const BODY_MIN_LENGTH = 10;
-export const BODY_MAX_LENGTH = 100;
+/**
+ * §9.2 / ADR-0019：貼文文字長度。
+ *
+ * 標題是牆頁卡片上唯一的文字，內文只在 /post/:id 出現。
+ * 20 字的上限來自版面而非資料：手機兩欄的卡片寬約 170 px，
+ * 0.86rem 的字一行約容得下 12 至 14 個中文字，20 字代表最多換行一次，
+ * 卡片高度因此只由照片比例決定。改大這個數字之前先想清楚牆會變成什麼樣子。
+ *
+ * **這兩組數字在 migration 011 另有一份 check 約束。** 伺服器那份才是把關，
+ * 這裡只用來讓輸入框先擋下來並顯示字數，改動時務必同時改。
+ */
+export const TITLE_MIN_LENGTH = 2;
+export const TITLE_MAX_LENGTH = 20;
+
+/** 內文選填（ADR-0019）：沒有內文時存 null，不是空字串 */
+export const BODY_MAX_LENGTH = 300;
 
 /** §9.3：圖片處理規格 */
 export const IMAGE = {

@@ -37,6 +37,7 @@ function makePost(index: number, week: WeekStart, refundable: boolean): Post {
   return {
     id: `p-${week}-${index}` as PostId,
     kind: index === 0 ? 'theme' : 'free',
+    title: `第 ${index} 則的標題`,
     body: `第 ${index} 則貼文，內容長度要過得了十個字的下限。`,
     imageUrl: `https://example.test/i${index}.jpg`,
     thumbUrl: `https://example.test/t${index}.jpg`,

@@ -60,7 +60,9 @@ function attachFile(app: HTMLElement): File {
   return file;
 }
 
-async function submit(app: HTMLElement, body: string): Promise<void> {
+async function submit(app: HTMLElement, title: string, body = ''): Promise<void> {
+  const titleInput = app.querySelector<HTMLInputElement>('#post-title');
+  if (titleInput) titleInput.value = title;
   const textarea = app.querySelector<HTMLTextAreaElement>('#post-body');
   if (textarea) textarea.value = body;
   app
@@ -135,37 +137,62 @@ describe('/post/new 的配額與主題（§9.1、§9.6）', () => {
 describe('/post/new 的送出檢查', () => {
   it('沒選照片就送出會被擋下，且不呼叫 createPost', async () => {
     const app = await render();
-    await submit(app, '這是一段夠長的內文，超過十個字。');
+    await submit(app, '今天的晚餐');
     expect(mocks.createPost).not.toHaveBeenCalled();
     expect(errorText(app)).toContain('照片');
   });
 
-  it('字數不足時直接說還差幾個字，不呼叫 createPost', async () => {
+  it('沒有標題就送出會被擋下（ADR-0019：標題必填）', async () => {
     const app = await render();
     attachFile(app);
-    await submit(app, '太短');
+    await submit(app, '   ');
     expect(mocks.createPost).not.toHaveBeenCalled();
-    expect(errorText(app)).toContain('還差 8 個字');
+    expect(errorText(app)).toContain('標題');
   });
 
-  it('通過檢查後以選定的種類與去空白的內文呼叫 createPost，成功則回牆頁', async () => {
+  it('標題只有一個字時擋下，說出下限', async () => {
+    const app = await render();
+    attachFile(app);
+    await submit(app, '好');
+    expect(mocks.createPost).not.toHaveBeenCalled();
+    expect(errorText(app)).toContain('至少 2 個字');
+  });
+
+  it('內文選填：只有照片加標題也發得出去（ADR-0019）', async () => {
     const app = await render();
     const file = attachFile(app);
     mocks.createPost.mockResolvedValue({});
-    await submit(app, '  這是一段夠長的內文，超過十個字。  ');
+    await submit(app, '今天的晚餐');
 
     expect(mocks.createPost).toHaveBeenCalledWith(
-      { kind: 'theme', body: '這是一段夠長的內文，超過十個字。', file },
+      { kind: 'theme', title: '今天的晚餐', body: '', file },
       'm-1',
     );
     expect(window.location.replace).toHaveBeenCalledWith('/wall');
+  });
+
+  it('標題與內文都去空白後才送出', async () => {
+    const app = await render();
+    const file = attachFile(app);
+    mocks.createPost.mockResolvedValue({});
+    await submit(app, '  今天的晚餐  ', '  跟小組一起吃的，很久沒這麼熱鬧。  ');
+
+    expect(mocks.createPost).toHaveBeenCalledWith(
+      {
+        kind: 'theme',
+        title: '今天的晚餐',
+        body: '跟小組一起吃的，很久沒這麼熱鬧。',
+        file,
+      },
+      'm-1',
+    );
   });
 
   it('createPost 失敗時原樣顯示模組給的訊息，按鈕恢復可按', async () => {
     const app = await render();
     attachFile(app);
     mocks.createPost.mockRejectedValue(new Error('本週的主題貼文已經用掉了。'));
-    await submit(app, '這是一段夠長的內文，超過十個字。');
+    await submit(app, '今天的晚餐');
 
     expect(errorText(app)).toContain('本週的主題貼文已經用掉了');
     const submitButton = app.querySelector<HTMLButtonElement>('.paper-button');

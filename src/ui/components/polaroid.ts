@@ -75,7 +75,9 @@ export function polaroidCard(post: Post, options: PolaroidOptions): HTMLElement 
   const img = document.createElement('img');
   img.className = 'polaroid__img';
   img.src = post.thumbUrl;
-  img.alt = post.body;
+  // alt 用標題而非內文：內文是選填的，而且可能有 300 字——
+  // 讀螢幕軟體在牆上逐張唸完那些會讓人放棄。想讀完整內容有 /post/:id。
+  img.alt = post.title;
   // §9.4：只載入 viewport 內的縮圖。egress 比 storage 更早觸頂。
   img.loading = 'lazy';
   img.decoding = 'async';
@@ -98,9 +100,10 @@ export function polaroidCard(post: Post, options: PolaroidOptions): HTMLElement 
 
   frame.append(pin, img);
 
-  const body = document.createElement('p');
-  body.className = 'polaroid__body';
-  body.textContent = post.body;
+  // ADR-0019：卡片上只有標題。內文在 /post/:id，點卡片就過去。
+  const title = document.createElement('p');
+  title.className = 'polaroid__title';
+  title.textContent = post.title;
 
   const meta = document.createElement('div');
   meta.className = 'polaroid__meta';
@@ -111,7 +114,7 @@ export function polaroidCard(post: Post, options: PolaroidOptions): HTMLElement 
   when.textContent = timeFormat.format(post.createdAt);
   meta.append(author, when);
 
-  card.append(frame, body, meta);
+  card.append(frame, title, meta);
 
   if (options.refundCountdown && post.refundableUntil) {
     const hint = document.createElement('div');

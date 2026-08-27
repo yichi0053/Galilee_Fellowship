@@ -14,6 +14,8 @@
 | 成員 | member | `room_members` 中 `status = 'active'` 的使用者 |
 | 訪客 | guest | 未登入，或已登入但不在 `room_members` 中 |
 | 孤兒帳號 | orphan account | 完成 Google 授權但未加入任何房間的 auth user |
+| 標題 | title | 貼文的一行標題，2 至 20 字，必填。牆頁卡片上唯一的文字 |
+| 內文 | body | 貼文的長文，至多 300 字，選填。只在 `/post/:id` 顯示，沒有時為 `null` |
 | 主題貼文 | theme post | `type = 'theme'`，每人每週上限 1 篇 |
 | 自由貼文 | free post | `type = 'free'`，每人每週上限 2 篇 |
 | 週界 | week boundary | 台灣時間（`Asia/Taipei`）週一 00:00 |
@@ -48,3 +50,5 @@ admin       →  membership, posts, themes
 - `posts_public` 與 `rooms_public` 兩個 view **不可**設 `security_invoker = true`，
   它們必須以 owner 權限執行才能繞過底層表的 RLS——這正是訪客唯讀的機制。
 - 週界為 `Asia/Taipei` 週一 00:00，不是 UTC。
+- `body` 是**可為 null** 的（ADR-0019）。讀取端的 null 守衛不可把 `body === null`
+  當成壞資料整列跳過——那會讓沒寫內文的貼文從訪客的牆上整個消失。該檢查的是 `title`。

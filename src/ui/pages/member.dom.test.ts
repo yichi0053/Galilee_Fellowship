@@ -24,6 +24,7 @@ function makePost(i: number, over: Partial<Post> = {}): Post {
   return {
     id: `p-${i}` as PostId,
     kind: 'free',
+    title: '測試標題',
     body: `第 ${i} 則貼文，長度要過得了十個字的下限。`,
     imageUrl: `https://example.test/i${i}.jpg`,
     thumbUrl: `https://example.test/t${i}.jpg`,

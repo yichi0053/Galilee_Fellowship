@@ -84,7 +84,7 @@ export type Database = {
       posts: {
         Row: {
           author_id: string
-          body: string
+          body: string | null
           counts_toward_quota: boolean
           created_at: string
           deleted_at: string | null
@@ -95,13 +95,14 @@ export type Database = {
           rotation_deg: number
           theme_id: string | null
           thumb_path: string
+          title: string
           type: Database["public"]["Enums"]["post_type"]
           updated_at: string
           week_start_date: string
         }
         Insert: {
           author_id: string
-          body: string
+          body?: string | null
           counts_toward_quota?: boolean
           created_at?: string
           deleted_at?: string | null
@@ -112,13 +113,14 @@ export type Database = {
           rotation_deg?: number
           theme_id?: string | null
           thumb_path: string
+          title: string
           type: Database["public"]["Enums"]["post_type"]
           updated_at?: string
           week_start_date: string
         }
         Update: {
           author_id?: string
-          body?: string
+          body?: string | null
           counts_toward_quota?: boolean
           created_at?: string
           deleted_at?: string | null
@@ -129,6 +131,7 @@ export type Database = {
           rotation_deg?: number
           theme_id?: string | null
           thumb_path?: string
+          title?: string
           type?: Database["public"]["Enums"]["post_type"]
           updated_at?: string
           week_start_date?: string
@@ -301,6 +304,7 @@ export type Database = {
           rotation_deg: number | null
           theme_id: string | null
           thumb_path: string | null
+          title: string | null
           type: Database["public"]["Enums"]["post_type"] | null
           week_start_date: string | null
         }

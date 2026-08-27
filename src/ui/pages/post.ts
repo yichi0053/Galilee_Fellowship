@@ -191,14 +191,20 @@ function postView(post: Post, viewer: Viewer): HTMLElement {
     );
   }
 
+  box.append(el('h1', 'post-title', post.title));
+
   const photo = el('div', 'post-photo');
   const img = el('img');
   img.src = post.imageUrl;
-  img.alt = post.body;
+  img.alt = post.title;
   photo.append(img);
   box.append(photo);
 
-  box.append(el('p', 'post-body', post.body));
+  // ADR-0019：內文選填。沒有內文時整段不渲染——
+  // 留一個空的 <p> 會在照片與作者資訊之間開一道莫名其妙的縫。
+  if (post.body !== null) {
+    box.append(el('p', 'post-body', post.body));
+  }
 
   const meta = el('div', 'post-meta');
   meta.append(el('span', undefined, post.authorName));
