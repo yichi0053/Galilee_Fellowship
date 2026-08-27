@@ -4,6 +4,7 @@
 
 - **架構書 2.0** 為唯一有效規格，本 repo 的註解以 `§` 引用其章節。
 - **[CONTEXT.md](CONTEXT.md)** — 共享語言與架構不變條件。改動程式前先讀。
+- **[docs/BUILD.md](docs/BUILD.md)** — 專案建置規格書。從零建置的完整流程、參數與相依順序。
 - **[docs/SETUP.md](docs/SETUP.md)** — 人工前置步驟（Supabase、Google OAuth、Cloudflare Pages）。
 - **[docs/OPERATIONS.md](docs/OPERATIONS.md)** — 維運與復原路徑。
 - **[docs/adr/](docs/adr/README.md)** — 23 則架構決策紀錄。
