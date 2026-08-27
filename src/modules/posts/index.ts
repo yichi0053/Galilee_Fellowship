@@ -60,11 +60,6 @@ export type NewPost = {
   readonly file: File;
 };
 
-export type PostPatch = {
-  readonly body?: string;
-  readonly file?: File;
-};
-
 export class QuotaExceededError extends Error {}
 export class BodyLengthError extends Error {}
 /** 本週尚未設定主題時無法發主題貼文（§9.6：過期主題不可補發） */
@@ -486,10 +481,18 @@ export async function getPost(id: PostId, asMemberId: string | null): Promise<Po
   return fromMemberRow(data, asMemberId);
 }
 
-/** 編輯不影響配額（§9.5） */
-export async function editPost(_id: PostId, _patch: PostPatch): Promise<Post> {
-  throw new Error('T-08 未實作');
-}
+/**
+ * **編輯貼文（§9.5）第一期不做。**
+ *
+ * 這裡原本留著一支 `editPost()` 空殼，本體是 `throw new Error('T-08 未實作')`，
+ * 而全案沒有任何呼叫端。留著空殼比拿掉更危險：型別看起來是齊的，
+ * 日後有人接上 UI 才會在使用者面前炸開。
+ *
+ * 真要做的話不只是一個 update：改圖要重新上傳與清掉舊檔、
+ * 且 migration 010 已收回 `posts` 的欄位層級 UPDATE 權限，
+ * 得再開一支 migration 才動得了 `body`。現階段的替代路徑是刪掉重發——
+ * 10 分鐘內刪除會回補配額（ADR-0010），剛好覆蓋「貼完才發現打錯字」這個情境。
+ */
 
 /**
  * 軟刪除。內部判定是否在回補期內，決定配額是否回補。
