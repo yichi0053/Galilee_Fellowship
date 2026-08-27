@@ -41,32 +41,18 @@ body {
 }
 
 /* ------------------------------------------------------------ 頂部三層 --- */
-/* §10.2：三層在手機上會佔掉超過三分之一螢幕高度，故需捲動收合。 */
-
-.wall-top {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-}
-
-.wall-nav,
-.theme-banner {
-  transition: transform 200ms ease, opacity 200ms ease;
-}
-
-.wall-top[data-collapsed="true"] .wall-nav,
-.wall-top[data-collapsed="true"] .theme-banner {
-  transform: translateY(-100%);
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* 收合時把上面兩層的高度讓出來，週次選擇器才會貼到頂端而不是浮在半空 */
-.wall-top[data-collapsed="true"] .wall-collapsible {
-  margin-top: calc(-1 * var(--collapsible-h, 0px));
-}
-
-.wall-collapsible { transition: margin-top 200ms ease; }
+/*
+ * §10.2：三層在手機上會佔掉超過三分之一螢幕高度。
+ *
+ * **只有週次選擇器釘在頂端**，導覽列與主題橫幅照常捲走。
+ *
+ * 原本的做法是整個 .wall-top 一起 sticky，再依捲動方向把上面兩層收合。
+ * 那讓週次 bar 在畫面上不斷上下移動：往下捲時它慢慢升到頂端，
+ * 稍微往上捲一點兩層就回來、又把它推下去。使用者要的是它待在原地不動。
+ *
+ * 拿掉收合之後也省下一個 scroll 監聽器——手機上每次捲動都要跑的東西，
+ * 少一個就少一份發熱。
+ */
 
 .wall-nav {
   display: flex;
@@ -112,11 +98,22 @@ body {
 /* 週次選擇器：水平捲動的膠囊 */
 /* 箭頭固定在兩端，膠囊在中間捲動。18 週的學期靠純捲動找某一週太費力。 */
 .week-bar {
+  /* 頂部三層裡**只有這一層釘住**（見上方「頂部三層」段的說明）。
+     它是 .wall-top 的直接子元素，而 .wall-top 沒有 overflow 也不是 sticky，
+     所以這個 sticky 的參照對象就是視窗——任何一層祖先加上 overflow 都會讓它失效。 */
+  position: sticky;
+  top: 0;
+  z-index: 20;
+
   display: flex;
   align-items: center;
   gap: 0.25rem;
   padding: 0.45rem 0.6rem;
-  background: rgb(38 32 26 / 80%);
+  /* 釘住之後底下會有卡片穿過。80% 透明度會讓照片透出來、膠囊上的字變得難讀，
+     故提高到 92% 並補一層模糊，與 .wall-nav 一致。 */
+  background: rgb(38 32 26 / 92%);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 22%);
 }
 
 .week-arrow {
@@ -179,7 +176,9 @@ body {
 
 .wall-weeks { padding: 1rem 0.75rem 6rem; }
 
-.week-section { margin-bottom: 2rem; scroll-margin-top: 7.5rem; }
+/* scroll-margin 要留出釘住的週次 bar 的高度，否則錨點捲動會把標題藏到 bar 底下。
+   原本 7.5rem 是為「導覽列 + 主題橫幅 + 週次 bar」三層算的，現在只剩一層。 */
+.week-section { margin-bottom: 2rem; scroll-margin-top: 3.5rem; }
 
 .week-section__heading {
   display: flex;
@@ -360,7 +359,7 @@ body {
   .polaroid { opacity: 1; animation: none !important; }
   .polaroid:active { transform: rotate(var(--rot, 0deg)); }
   .polaroid__img { opacity: 1; transition: none; }
-  .wall-nav, .theme-banner, .wall-collapsible { transition: none; }
+  .wall-nav, .theme-banner { transition: none; }
 }
 
 /* ------------------------------------------------------------------ FAB --- */

@@ -15,7 +15,7 @@
 | [0008](0008-plaintext-join-code.md) | 房間碼明文儲存，僅管理員可讀 | 資料庫被讀取時房間碼直接外洩 |
 | [0009](0009-soft-delete-30-days.md) | 軟刪除加 30 天硬刪除 | 需排程機制；30 天後誤刪無救 |
 | [0010](0010-quota-refund-window.md) | 10 分鐘配額回補期 | 需額外欄位與 UI 倒數提示 |
-| [0011](0011-top-nav-and-fab.md) | 一律頂部導覽列，發文按鈕採 FAB | 頂部三層堆疊，需捲動收合 |
+| [0011](0011-top-nav-and-fab.md) | 一律頂部導覽列，發文按鈕採 FAB | 只有週次 bar 釘頂，捲動時看不到導覽連結 |
 | [0012](0012-supabase-cli-not-xampp.md) | 本機開發採 Supabase CLI 而非 XAMPP | 需安裝 Docker |
 | [0013](0013-phased-feature-release.md) | 分期釋出功能作為維持參與度的手段 | 使用者需經歷多次新功能說明 |
 | [0014](0014-single-admin.md) | 單一管理員 | 單點失效，需開發者作為復原路徑 |

@@ -290,3 +290,23 @@ describe('牆頁的週次選擇器（§10.6）', () => {
     expect(app.querySelector('.theme-banner__label')?.textContent).toContain('那一週的主題');
   });
 });
+
+describe('頂部只有週次選擇器釘在頂端（§10.2）', () => {
+  it('週次 bar 是 .wall-top 的直接子元素，沒有中間那層收合容器', async () => {
+    const app = await renderWall();
+    const bar = app.querySelector('.week-bar');
+    expect(bar?.parentElement?.className).toBe('wall-top');
+    expect(app.querySelector('.wall-collapsible')).toBeNull();
+  });
+
+  it('不再有 data-collapsed——收合已移除，bar 一律待在原地', async () => {
+    const app = await renderWall();
+    expect(app.querySelector<HTMLElement>('.wall-top')?.dataset['collapsed']).toBeUndefined();
+  });
+
+  it('導覽列與主題橫幅仍在，只是會跟著捲走', async () => {
+    const app = await renderWall();
+    expect(app.querySelector('.wall-nav')).not.toBeNull();
+    expect(app.querySelector('.theme-banner')).not.toBeNull();
+  });
+});

@@ -190,7 +190,6 @@ async function main(): Promise<void> {
   const show = async (week: WeekStart): Promise<void> => {
     selected = week;
     // 換週次時把上一輪的監聽器拆掉，否則一學期切下來會累積一堆 scroll 與 interval。
-    app.querySelector('.wall-top')?.dispatchEvent(new CustomEvent('wall-header:dispose'));
     const previous = app.querySelector<HTMLElement>('.wall-weeks');
     if (previous) disposeCards(previous);
     detachEntrance?.();
@@ -237,7 +236,6 @@ async function main(): Promise<void> {
 
   document.body.append(fab(mode));
   window.addEventListener('pagehide', () => {
-    app.querySelector('.wall-top')?.dispatchEvent(new CustomEvent('wall-header:dispose'));
     const body = app.querySelector<HTMLElement>('.wall-weeks');
     if (body) disposeCards(body);
     detachEntrance?.();
