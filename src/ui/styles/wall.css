@@ -217,7 +217,14 @@ body {
 /* ------------------------------------------------------------ polaroid --- */
 
 .polaroid {
-  display: block;
+  /* **不可改回 display: block。** columns 會把 block 盒切成兩段接到下一欄頂端——
+     手機兩欄時最明顯：照片下緣被切掉，切掉的那截出現在右欄的頂端。
+     break-inside: avoid 對 block 盒在 Chrome 與 Safari 上都不保證生效（本專案
+     2026-08-27 於手機上實際踩到）。inline-block 是 atomic inline，
+     規範上就不可分割，任何引擎都切不開它。
+     卡片由 append(element) 加入、之間沒有空白文字節點，故不會有 inline 間隙。 */
+  display: inline-block;
+  vertical-align: top;
   width: 100%;
   margin: 0 0 0.75rem;
   padding: 0.5rem 0.5rem 0.6rem;
@@ -228,7 +235,12 @@ body {
   cursor: pointer;
   background: var(--card);
   box-shadow: 0 3px 8px rgb(0 0 0 / 28%), 0 10px 22px rgb(0 0 0 / 16%);
+  /* 留著三個寫法當第二道防線：舊 WebKit 只認 -webkit- 那個 */
   break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  page-break-inside: avoid;
+  /* 手機點擊時瀏覽器預設會蓋一層灰藍色方塊，蓋掉圓角與陰影，很難看 */
+  -webkit-tap-highlight-color: transparent;
 
   /* §11.2：旋轉角來自 posts.rotation_deg，發文時決定並固定不變。
      每次載入都重擲的話，同一則貼文每次看起來都不一樣，反而顯得不穩定。 */
@@ -240,6 +252,14 @@ body {
 .polaroid:focus-visible {
   transform: rotate(var(--rot, 0deg)) translateY(-3px) scale(1.02);
   box-shadow: 0 6px 14px rgb(0 0 0 / 32%), 0 16px 30px rgb(0 0 0 / 18%);
+}
+
+/* 手機沒有 hover。少了這一條，點下去到 lightbox 開啟之間完全沒有回饋，
+   在慢一點的機器上會讓人以為沒點到而連按兩次。 */
+.polaroid:active {
+  transform: rotate(var(--rot, 0deg)) scale(0.97);
+  box-shadow: 0 2px 5px rgb(0 0 0 / 30%);
+  transition-duration: 90ms;
 }
 
 .polaroid__pin {
@@ -263,7 +283,15 @@ body {
   background: #e8e2d6;
   aspect-ratio: var(--ratio, 1);
   object-fit: cover;
+  /* 縮圖是 lazy 載入的，載到才淡進來。少了這段，捲動時看到的是
+     一塊灰底突然被照片取代，那個瞬間的跳動比淡入更引人注意。
+     data-loaded 由 polaroid.ts 在 load 或 error 時掛上——error 也要掛，
+     否則載入失敗的圖會維持 opacity: 0，連 alt 文字都看不到。 */
+  opacity: 0;
+  transition: opacity 260ms ease;
 }
+
+.polaroid__img[data-loaded="true"] { opacity: 1; }
 
 .polaroid__body {
   margin: 0.55rem 0.15rem 0;
@@ -295,15 +323,38 @@ body {
 
 /* 進場動畫（§11.3）。偏好減少動態的使用者直接跳過。 */
 .polaroid { opacity: 0; }
-.polaroid[data-entered="true"] { animation: card-in 320ms ease forwards; }
+
+/*
+ * **不要加回 animation-fill-mode: forwards。**
+ * 填充中的動畫其 to 狀態在層疊上贏過一般宣告，於是動畫播完之後
+ * transform 永遠鎖在 rotate(--rot)，上面的 :hover 與 :active 全部變成死碼——
+ * 手機因此完全沒有點擊回饋。改為在這裡直接宣告 opacity: 1：
+ * 動畫結束後元素回到自己的一般樣式，互動效果才活得下來。
+ */
+.polaroid[data-entered="true"] {
+  opacity: 1;
+  animation: card-in 340ms cubic-bezier(0.22, 0.9, 0.3, 1);
+  /* 同一批進入視窗的卡片依序上來，比整排同時彈出自然。
+     --stagger 由 polaroid.ts 的 observeEntrance 逐張指定。 */
+  animation-delay: var(--stagger, 0ms);
+}
 
 @keyframes card-in {
-  from { opacity: 0; transform: rotate(var(--rot, 0deg)) translateY(14px) scale(0.96); }
-  to   { opacity: 1; transform: rotate(var(--rot, 0deg)); }
+  from {
+    opacity: 0;
+    transform: rotate(var(--rot, 0deg)) translateY(16px) scale(0.94);
+  }
+  60% { opacity: 1; }
+  to {
+    opacity: 1;
+    transform: rotate(var(--rot, 0deg));
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .polaroid { opacity: 1; animation: none !important; }
+  .polaroid:active { transform: rotate(var(--rot, 0deg)); }
+  .polaroid__img { opacity: 1; transition: none; }
   .wall-nav, .theme-banner, .wall-collapsible { transition: none; }
 }
 
@@ -329,6 +380,16 @@ body {
   cursor: pointer;
   background: #2f6f52;
   box-shadow: 0 4px 12px rgb(0 0 0 / 32%);
+  /* 這是 <a>（wall.ts 的 fab()），瀏覽器預設會畫底線。
+     .wall-nav__link 有關掉，這裡原本漏了。 */
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.fab:active {
+  transform: scale(0.96);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 30%);
 }
 
 .fab--guest { background: #7a4b2a; }

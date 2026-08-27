@@ -50,6 +50,20 @@ export function polaroidCard(post: Post, options: PolaroidOptions): HTMLElement 
   img.loading = 'lazy';
   img.decoding = 'async';
 
+  // 縮圖載到才淡進來（樣式在 wall.css 的 .polaroid__img）。
+  // error 也要掛 data-loaded：否則載入失敗的圖停在 opacity: 0，
+  // 連 alt 文字都看不到，畫面上只剩一塊灰底，看不出是壞了還是還沒載。
+  // complete 的分支涵蓋已在快取中的圖——那種情況 load 事件不會再觸發。
+  if (img.complete) {
+    img.dataset['loaded'] = 'true';
+  } else {
+    const done = (): void => {
+      img.dataset['loaded'] = 'true';
+    };
+    img.addEventListener('load', done, { once: true });
+    img.addEventListener('error', done, { once: true });
+  }
+
   frame.append(pin, img);
 
   const body = document.createElement('p');
@@ -115,9 +129,15 @@ export function observeEntrance(container: ParentNode): () => void {
 
   const observer = new IntersectionObserver(
     (entries) => {
+      // 同一批進入視窗的卡片依序上來，比整排同時彈出自然。
+      // 上限 8 張：第一次載入時整個視窗的卡片會在同一批進來，
+      // 不設上限的話最後幾張要等將近一秒才出現，那不是動畫是延遲。
+      let order = 0;
       entries.forEach((entry) => {
         if (!entry.isIntersecting) return;
         const el = entry.target as HTMLElement;
+        el.style.setProperty('--stagger', `${Math.min(order, 8) * 45}ms`);
+        order += 1;
         el.dataset['entered'] = 'true';
         observer.unobserve(el);
       });
