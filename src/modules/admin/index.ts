@@ -119,13 +119,21 @@ export async function listMembers(): Promise<ReadonlyArray<MemberSummary>> {
   }));
 }
 
-/** members_update policy 是 is_admin(room_id)，非管理員在這裡會被拒而不是安靜失敗 */
+/**
+ * 走 migration 013 的 definer 函式，不是直接 UPDATE。
+ *
+ * 那支 migration 為了讓成員能編輯自己的個人檔案，把 room_members 的 UPDATE
+ * 收窄到四個欄位——status 與 role 不在其中，任何角色都改不動。
+ * 少了這道，成員只要一個 PATCH 就能把自己的 role 設成 admin。
+ *
+ * 授權與「不可停權管理員」的判斷都在函式內以 auth.uid() 重做一次，
+ * 前端這裡不做也不能做（ADR-0014：停掉唯一的管理員就沒有人能把它復權了）。
+ */
 async function setStatus(memberId: string, status: MemberSummary['status']): Promise<void> {
-  const { error } = await db
-    .from('room_members')
-    .update({ status })
-    .eq('id', memberId)
-    .eq('room_id', ROOM_ID);
+  const { error } = await db.rpc('admin_set_member_status', {
+    p_member_id: memberId,
+    p_status: status,
+  });
   if (error) throw new Error(`更新成員狀態失敗：${error.message}`);
 }
 

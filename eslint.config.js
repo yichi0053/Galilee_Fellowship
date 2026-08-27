@@ -84,6 +84,7 @@ export default tseslint.config(
     { dir: 'quota', allow: [] },
     { dir: 'themes', allow: [] },
     { dir: 'auth', allow: [] },
+    { dir: 'profile', allow: [] },
     { dir: 'posts', allow: ['quota', 'media', 'themes'] },
     { dir: 'membership', allow: ['auth'] },
     { dir: 'admin', allow: ['membership', 'posts', 'themes'] },

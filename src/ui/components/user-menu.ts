@@ -64,13 +64,13 @@ function avatar(displayName: string, avatarUrl: string | null): HTMLElement {
 /**
  * 依身分決定清單內容。
  *
- * `個人資料設定` 掛在 features.profile 底下（第三期第 4 至 5 週）：
- * ADR-0013 明訂未啟用的功能不渲染入口，所以現在不會出現，開關一翻就自己冒出來。
+ * 姓名不在這裡：它是清單的第一項、也是通往個人檔案的入口，
+ * 但版面上是一整塊（頭像加姓名）而不是一列文字，故單獨處理。
+ * features.profile 關著時姓名就不是連結，只是一行標示（ADR-0013：
+ * 未啟用的功能不渲染入口）。
  */
 function itemsFor(viewer: Viewer, onSignOut: () => void): MenuItem[] {
   const items: MenuItem[] = [{ label: '我的貼文', href: '/member/me' }];
-
-  if (isEnabled('profile')) items.push({ label: '個人資料設定', href: '/member/me/edit' });
 
   // 管理員的項目排在成員項目之後、登出之前：後台是額外的權限而不是另一種身分。
   if (viewer.kind === 'admin') items.push({ label: '管理後台', href: '/admin' });
@@ -99,9 +99,23 @@ export function userMenu(options: UserMenuOptions): HTMLElement {
   list.setAttribute('role', 'menu');
   list.hidden = true;
 
-  const name = el('p', 'user-menu__name', viewer.displayName);
-  list.append(name);
-  if (viewer.kind === 'admin') list.append(el('p', 'user-menu__role', '管理員'));
+  // 清單的第一項就是自己：頭像加姓名，點下去進個人檔案。
+  // 把姓名做成入口而不是另開一列「個人資料設定」，是因為在手機上
+  // 「點自己的名字看自己的資料」比一列同義的文字直覺。
+  const header = isEnabled('profile') ? el('a', 'user-menu__self') : el('div', 'user-menu__self');
+  if (header instanceof HTMLAnchorElement) {
+    header.href = '/member/me/edit';
+    header.setAttribute('role', 'menuitem');
+  }
+  header.append(avatar(viewer.displayName, viewer.avatarUrl));
+
+  const names = el('span', 'user-menu__names');
+  names.append(el('span', 'user-menu__name', viewer.displayName));
+  names.append(
+    el('span', 'user-menu__role', viewer.kind === 'admin' ? '管理員 · 個人檔案' : '個人檔案'),
+  );
+  header.append(names);
+  list.append(header);
 
   for (const item of itemsFor(viewer, options.onSignOut)) {
     if ('href' in item) {

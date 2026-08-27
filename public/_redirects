@@ -10,6 +10,8 @@
 # 服務 /wall。實測 /new /post /member 均直接回 200 並送出正確的 HTML，
 # 證明這層解析是通的——多寫一條規則不但沒有幫助，還正是迴圈的來源。
 
+# /member/me/edit 必須排在 /member/* 之前，否則個人檔案頁會被萬用規則吃掉。
+/member/me/edit  /profile   200
 /post/new        /new       200
 /post/*          /post      200
 /member/*        /member    200

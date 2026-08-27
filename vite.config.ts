@@ -15,12 +15,14 @@ import type { Connect, Plugin } from 'vite';
  * 見該檔的說明）；Vite 沒有這層解析，六條都得自己補。
  * 動到任何一邊時，請先讀另一邊的註解確認差異仍然成立。
  *
- * 順序有意義：/post/new 必須排在 /post/* 之前。
+ * 順序有意義：/post/new 必須排在 /post/* 之前，
+ * /member/me/edit 必須排在 /member/* 之前。
  */
 const CLEAN_URLS: readonly (readonly [RegExp, string])[] = [
   [/^\/wall\/?$/, '/wall.html'],
   [/^\/join\/?$/, '/join.html'],
   [/^\/admin\/?$/, '/admin.html'],
+  [/^\/member\/me\/edit\/?$/, '/profile.html'],
   [/^\/post\/new\/?$/, '/new.html'],
   [/^\/post\/.+/, '/post.html'],
   [/^\/member\/.+/, '/member.html'],
@@ -55,6 +57,7 @@ export default defineConfig({
         new: resolve(__dirname, 'new.html'),
         join: resolve(__dirname, 'join.html'),
         member: resolve(__dirname, 'member.html'),
+        profile: resolve(__dirname, 'profile.html'),
         admin: resolve(__dirname, 'admin.html'),
       },
     },

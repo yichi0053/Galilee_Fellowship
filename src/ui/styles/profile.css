@@ -1,0 +1,23 @@
+/* 個人檔案設定（架構書 §10.7 / ADR-0022） */
+
+.profile-page {
+  width: min(34rem, 100%);
+  margin: 0 auto;
+}
+
+.profile-signout {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgb(255 255 255 / 22%);
+  text-align: center;
+}
+
+/* 登出與上面的儲存是不同性質的操作，視覺上也要分得開：
+   儲存是主要動作，登出是離開。同樣的按鈕樣式會讓人點錯。 */
+.paper-button--quiet {
+  background: transparent;
+  color: #f6f1e7;
+  border: 1px solid rgb(246 241 231 / 45%);
+}
+
+.paper-button--quiet:hover:not([disabled]) { background: rgb(255 255 255 / 12%); }

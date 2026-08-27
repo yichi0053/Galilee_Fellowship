@@ -66,6 +66,15 @@ export const JOIN_CODE_MIN_LENGTH = 12;
  */
 export const DISPLAY_NAME_MAX_LENGTH = 20;
 
+/**
+ * §10.7 / ADR-0022：個人檔案的選填欄位長度。
+ *
+ * **這兩個數字在 migration 013 另有一份 check 約束。** 伺服器那份才是把關，
+ * 這裡只用來讓輸入框先擋下來並顯示字數，改動時務必同時改。
+ */
+export const INTERESTS_MAX_LENGTH = 100;
+export const FAVORITE_VERSE_MAX_LENGTH = 200;
+
 /** §7.3：週界時區 */
 export const WEEK_BOUNDARY_TIMEZONE = 'Asia/Taipei';
 

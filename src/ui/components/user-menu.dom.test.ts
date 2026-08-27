@@ -49,8 +49,22 @@ describe('清單內容', () => {
 
   it('管理員的清單上標示身分，避免誤以為在用一般帳號', () => {
     const menu = userMenu({ viewer: ADMIN, onSignOut: vi.fn() });
-    expect(menu.querySelector('.user-menu__role')?.textContent).toBe('管理員');
+    expect(menu.querySelector('.user-menu__role')?.textContent).toContain('管理員');
     expect(menu.querySelector('.user-menu__name')?.textContent).toBe('林大方');
+  });
+
+  it('第一項是自己的姓名，點下去進個人檔案（ADR-0022）', () => {
+    const menu = userMenu({ viewer: MEMBER, onSignOut: vi.fn() });
+    const self = menu.querySelector<HTMLAnchorElement>('a.user-menu__self');
+    expect(self).not.toBeNull();
+    expect(self?.getAttribute('href')).toBe('/member/me/edit');
+    expect(self?.querySelector('.user-menu__name')?.textContent).toBe('陳小明');
+  });
+
+  it('姓名那一項排在「我的貼文」之前', () => {
+    const menu = userMenu({ viewer: MEMBER, onSignOut: vi.fn() });
+    const first = menu.querySelector('.user-menu__list')?.firstElementChild;
+    expect(first?.classList.contains('user-menu__self')).toBe(true);
   });
 });
 
@@ -116,9 +130,12 @@ describe('頭像', () => {
       viewer: { ...MEMBER, avatarUrl: 'https://lh3.googleusercontent.com/gone' } as Viewer,
       onSignOut: vi.fn(),
     });
-    menu.querySelector<HTMLImageElement>('.user-menu__avatar')!.dispatchEvent(new Event('error'));
+    // 觸發鈕與清單第一項各有一個頭像，兩個都要能退回首字。
+    const imgs = [...menu.querySelectorAll<HTMLImageElement>('.user-menu__avatar')];
+    expect(imgs.length).toBe(2);
+    for (const img of imgs) img.dispatchEvent(new Event('error'));
     expect(menu.querySelector('.user-menu__avatar')).toBeNull();
-    expect(menu.querySelector('.user-menu__initial')?.textContent).toBe('陳');
+    expect(menu.querySelectorAll('.user-menu__initial').length).toBe(2);
   });
 });
 

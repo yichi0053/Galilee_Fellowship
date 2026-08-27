@@ -176,7 +176,10 @@ export type Database = {
       }
       room_members: {
         Row: {
+          birthday: string | null
           display_name: string
+          favorite_verse: string | null
+          interests: string | null
           id: string
           joined_at: string
           role: Database["public"]["Enums"]["member_role"]
@@ -185,8 +188,11 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          birthday?: string | null
           display_name: string
+          favorite_verse?: string | null
           id?: string
+          interests?: string | null
           joined_at?: string
           role?: Database["public"]["Enums"]["member_role"]
           room_id: string
@@ -194,8 +200,11 @@ export type Database = {
           user_id: string
         }
         Update: {
+          birthday?: string | null
           display_name?: string
+          favorite_verse?: string | null
           id?: string
+          interests?: string | null
           joined_at?: string
           role?: Database["public"]["Enums"]["member_role"]
           room_id?: string
@@ -404,6 +413,13 @@ export type Database = {
       }
     }
     Functions: {
+      admin_set_member_status: {
+        Args: {
+          p_member_id: string
+          p_status: Database["public"]["Enums"]["member_status"]
+        }
+        Returns: undefined
+      }
       admin_set_post_hidden: {
         Args: { p_hidden: boolean; p_id: string }
         Returns: undefined

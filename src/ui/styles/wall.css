@@ -497,19 +497,48 @@ body {
    會蓋掉它（作者樣式勝過內建）。這裡不對 .user-menu__list 寫 display，
    靠 hidden 自己生效即可——改動時別順手加上 display: block。 */
 
+/* 清單第一項：頭像加姓名，整塊都是通往個人檔案的連結 */
+.user-menu__self {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.6rem;
+  margin-bottom: 0.25rem;
+  border-radius: 0.4rem;
+  border-bottom: 1px solid rgb(0 0 0 / 8%);
+  text-decoration: none;
+  color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
+}
+
+a.user-menu__self:hover,
+a.user-menu__self:focus-visible { background: rgb(0 0 0 / 6%); }
+
+/* 這裡的頭像固定 2rem，與觸發鈕的 2.1rem 不共用尺寸——
+   觸發鈕要滿足可觸及範圍，清單裡的只是識別。 */
+.user-menu__self .user-menu__avatar,
+.user-menu__self .user-menu__initial {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+}
+
+.user-menu__names {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 .user-menu__name {
-  margin: 0;
-  padding: 0.35rem 0.6rem 0;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .user-menu__role {
-  margin: 0 0 0.25rem;
-  padding: 0 0.6rem 0.35rem;
   font-size: 0.7rem;
   color: var(--ink-soft);
-  border-bottom: 1px solid rgb(0 0 0 / 8%);
 }
 
 .user-menu__item {

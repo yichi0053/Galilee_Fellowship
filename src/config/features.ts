@@ -7,7 +7,7 @@
 export const features = {
   memberFilter: false, // 第二期，第 3 週
   randomThrowback: false, // 第二期，第 3 週
-  profile: false, // 第三期，第 4 至 5 週
+  profile: true, // 原訂第三期第 4 至 5 週，2026-08-28 提前（ADR-0022）
   icebreaker: false, // 第四期，第 6 至 8 週
   spotlight: false, // 第五期，第 9 至 12 週
   guessWho: false, // 第六期，第 13 至 15 週
