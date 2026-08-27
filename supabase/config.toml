@@ -18,3 +18,9 @@ project_id = "galilee-fellowship-wall"
 # 開著 verify_jwt 時會在瀏覽器送出正式請求之前就被平台擋掉。
 [functions.join-room]
 verify_jwt = false
+
+# 理由同 join-room：把關在 function 內部（getUser 加上 room_members 的 role 查詢），
+# 平台層的 verify_jwt 擋不住任何人（anon key 本身就是合法 JWT），
+# 關掉它換到的是可靠的 CORS preflight。
+[functions.cleanup-posts]
+verify_jwt = false

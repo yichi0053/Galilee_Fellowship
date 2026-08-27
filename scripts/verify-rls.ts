@@ -112,6 +112,20 @@ function rows(r: RestResult): unknown[] {
   return Array.isArray(r.body) ? r.body : [];
 }
 
+/** 呼叫 Edge Function。與 rest() 的差別只在路徑前綴，但那前綴是寫死的，故另立一支 */
+async function callFunction(identity: Identity, name: string): Promise<number> {
+  const res = await fetch(`${URL_BASE}/functions/v1/${name}`, {
+    method: 'POST',
+    headers: {
+      apikey: ANON_KEY!,
+      Authorization: `Bearer ${identity.token ?? ANON_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({}),
+  });
+  return res.status;
+}
+
 /** 已上傳的測試檔案，於 finally 一併清除 */
 const uploadedObjects: string[] = [];
 
@@ -424,6 +438,20 @@ async function main(): Promise<void> {
       rForge.status >= 400, `status=${rForge.status}`);
 
     // ---- §15.2 優先序 4：mask_name 純函式 ----
+    console.log('\nEdge Function：cleanup-posts（ADR-0009 的 30 天硬刪除）');
+
+    // 這支函式以 service role 執行、繞過 RLS，所以它自己那段
+    // 「以 auth.uid() 反查 room_members 確認是管理員」就是唯一的防線。
+    const cAnon = await callFunction(guest, 'cleanup-posts');
+    check('訪客無法觸發清理', cAnon === 401, `status=${cAnon}`);
+
+    const cMember = await callFunction(asA, 'cleanup-posts');
+    check('一般成員無法觸發清理 ← definer 等級權限的唯一防線', cMember === 403, `status=${cMember}`);
+
+    // 測試資料都是剛建立的，沒有滿 30 天的貼文，故這一趟只驗權限與冪等，不會刪到東西。
+    const cAdmin = await callFunction(asAdmin, 'cleanup-posts');
+    check('管理員觸發得了清理', cAdmin === 200, `status=${cAdmin}`);
+
     console.log('\nmigration 003：Storage bucket 與 policy');
 
     const bucket = await admin(`/storage/v1/bucket/${POST_IMAGES_BUCKET}`);
