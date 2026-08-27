@@ -110,12 +110,37 @@ body {
 .theme-banner__desc { margin: 0.2rem 0 0; font-size: 0.8rem; color: var(--ink-soft); }
 
 /* 週次選擇器：水平捲動的膠囊 */
+/* 箭頭固定在兩端，膠囊在中間捲動。18 週的學期靠純捲動找某一週太費力。 */
+.week-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.45rem 0.6rem;
+  background: rgb(38 32 26 / 80%);
+}
+
+.week-arrow {
+  flex: none;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 0;
+  border-radius: 999px;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  background: rgb(255 255 255 / 14%);
+  color: #f6f1e7;
+}
+
+.week-arrow:hover:not([disabled]) { background: rgb(255 255 255 / 24%); }
+.week-arrow[disabled] { opacity: 0.28; cursor: default; }
+
 .week-picker {
+  flex: 1;
   display: flex;
   gap: 0.4rem;
   overflow-x: auto;
-  padding: 0.5rem 1rem;
-  background: rgb(38 32 26 / 80%);
+  scroll-behavior: smooth;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }
@@ -136,6 +161,19 @@ body {
 }
 
 .week-pill[aria-current="true"] { background: var(--card); color: var(--ink); font-weight: 600; }
+
+/* 沒有貼文的那幾週先變淡：點進去之前就知道那裡是空的 */
+.week-pill[data-empty="true"]:not([aria-current="true"]) { opacity: 0.45; }
+
+.week-pill__count {
+  margin-left: 0.3rem;
+  font-size: 0.7rem;
+  padding: 0 0.32rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 22%);
+}
+
+.week-pill[aria-current="true"] .week-pill__count { background: rgb(0 0 0 / 10%); }
 
 /* ---------------------------------------------------------------- 牆面 --- */
 

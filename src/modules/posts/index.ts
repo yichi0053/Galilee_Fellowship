@@ -282,6 +282,47 @@ async function listWeekAsMember(
     .map((row) => fromMemberRow(row, asMemberId));
 }
 
+/** 有貼文的週次與各自的則數，新的在前。牆頁用它畫週次選擇器 */
+export type WeekSummary = { readonly week: WeekStart; readonly count: number };
+
+/**
+ * 哪些週有貼文、各有幾則（§10.6）。
+ *
+ * 只取 week_start_date 一個欄位，1296 則上限下約 40 KB，
+ * 與圖片相比可以忽略；換到的是週次列上「這週有幾則」的提示。
+ * 可見性規則與 listWeek 一致，否則選擇器會顯示一個點進去卻是空的週次。
+ */
+export async function listWeeks(asMemberId: string | null): Promise<readonly WeekSummary[]> {
+  const counts = new Map<string, number>();
+
+  if (asMemberId === null) {
+    const { data, error } = await db
+      .from('posts_public')
+      .select('week_start_date')
+      .eq('room_id', ROOM_ID);
+    if (error) throw error;
+    for (const row of data ?? []) {
+      if (row.week_start_date === null) continue;
+      counts.set(row.week_start_date, (counts.get(row.week_start_date) ?? 0) + 1);
+    }
+  } else {
+    const { data, error } = await db
+      .from('posts')
+      .select('week_start_date, author_id, hidden_by_admin')
+      .eq('room_id', ROOM_ID)
+      .is('deleted_at', null);
+    if (error) throw error;
+    for (const row of data ?? []) {
+      if (row.hidden_by_admin && row.author_id !== asMemberId) continue;
+      counts.set(row.week_start_date, (counts.get(row.week_start_date) ?? 0) + 1);
+    }
+  }
+
+  return [...counts.entries()]
+    .map(([week, count]) => ({ week: parseWeekStart(week), count }))
+    .sort((a, b) => (a.week < b.week ? 1 : -1));
+}
+
 /**
  * 自己所有的貼文，不分週次，新的在前（§10.7 的「我的貼文」）。
  *
