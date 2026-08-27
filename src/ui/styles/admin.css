@@ -154,3 +154,21 @@ a.mini {
   align-items: center;
   text-decoration: none;
 }
+
+/* §10.8：後台的成員列與 /members 的列表用同一個頭像，兩邊是同一件事 */
+.row__avatar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: hsl(var(--hue, 20) 45% 38%);
+  color: #fffdf7;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+a.row__name { color: inherit; text-decoration: underline; text-underline-offset: 3px; }

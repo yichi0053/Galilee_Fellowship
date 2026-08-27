@@ -23,6 +23,7 @@
 | 可刪除期限 | delete window | 發布後 20 分鐘內可自行刪除，逾期刪不掉（ADR-0021）|
 | 遮蔽姓名 | masked name | 訪客所見的姓名形式，例如「陳小O」 |
 | 個人檔案 | profile | 成員自填的生日、興趣、喜歡的經節。暱稱即 `display_name`，不另立欄位 |
+| 成員列表 | member directory | `/members`，房間裡的 active 成員。與 `/member/*`（關於我）是兩組路由 |
 | 軟刪除 | soft delete | 作者刪除，設 `deleted_at`，30 天後硬刪除 |
 | 下架 | hidden | 管理員隱藏，設 `hidden_by_admin` |
 | 停權 | suspended | 管理員停權成員，其貼文一律隱藏 |

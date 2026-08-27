@@ -1,0 +1,121 @@
+/* 成員列表與個人資料（架構書 §10.8 / ADR-0023） */
+
+.members-shell { padding: 1rem 0.75rem 5rem; }
+.members-page { width: min(40rem, 100%); margin: 0 auto; }
+
+.members-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 0.4rem;
+  background: rgb(38 32 26 / 55%);
+  color: #f6f1e7;
+}
+
+.members-head__title { margin: 0; font-size: 1rem; font-weight: 600; }
+.members-head__count { font-size: 0.8rem; opacity: 0.85; }
+
+.members-head__back {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: #f6f1e7;
+  text-decoration: none;
+  border-bottom: 1px solid rgb(246 241 231 / 45%);
+}
+
+/*
+ * 每個人一格直向長方形。auto-fill 而非固定欄數：
+ * 24 人在手機上是 3 欄、平板 5 欄、桌機 7 欄，不必寫三組 media query。
+ */
+.member-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+  gap: 0.7rem;
+}
+
+.member-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.9rem 0.5rem;
+  border-radius: 0.75rem;
+  text-decoration: none;
+  color: var(--ink);
+  background: var(--card);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 22%);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.member-tile:hover,
+.member-tile:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 12px rgb(0 0 0 / 28%);
+}
+
+.member-tile:active { transform: scale(0.97); }
+
+.member-tile__avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  background: hsl(var(--hue, 20) 45% 38%);
+  color: #fffdf7;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.member-tile__name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------ 個人資料 --- */
+
+.profile-card { text-align: center; }
+
+.profile-card__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  margin: 0.2rem auto 0.6rem;
+  border-radius: 50%;
+  background: hsl(var(--hue, 20) 45% 38%);
+  color: #fffdf7;
+  font-size: 1.9rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.profile-row {
+  margin-top: 0.9rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid rgb(0 0 0 / 8%);
+  text-align: left;
+}
+
+.profile-row__label {
+  display: block;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+
+.profile-row__value {
+  margin: 0.2rem 0 0;
+  font-family: var(--font-hand);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}

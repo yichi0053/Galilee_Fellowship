@@ -144,3 +144,12 @@
   cursor: zoom-in;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* §10.8：作者姓名連往個人資料。訪客看到的是純文字（沒有 authorId）。 */
+.post-meta__author {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  -webkit-tap-highlight-color: transparent;
+}

@@ -17,11 +17,14 @@ import type { Connect, Plugin } from 'vite';
  *
  * 順序有意義：/post/new 必須排在 /post/* 之前，
  * /member/me/edit 必須排在 /member/* 之前。
+ * /members* 與 /member/* 不會互相吃到：後者要求 member 後面緊接 `/`，而 /members/x 是 `s`。
  */
 const CLEAN_URLS: readonly (readonly [RegExp, string])[] = [
   [/^\/wall\/?$/, '/wall.html'],
   [/^\/join\/?$/, '/join.html'],
   [/^\/admin\/?$/, '/admin.html'],
+  [/^\/members\/?$/, '/members.html'],
+  [/^\/members\/.+/, '/members.html'],
   [/^\/member\/me\/edit\/?$/, '/profile.html'],
   [/^\/post\/new\/?$/, '/new.html'],
   [/^\/post\/.+/, '/post.html'],
@@ -58,6 +61,7 @@ export default defineConfig({
         join: resolve(__dirname, 'join.html'),
         member: resolve(__dirname, 'member.html'),
         profile: resolve(__dirname, 'profile.html'),
+        members: resolve(__dirname, 'members.html'),
         admin: resolve(__dirname, 'admin.html'),
       },
     },

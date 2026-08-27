@@ -238,7 +238,18 @@ function postView(post: Post, viewer: Viewer): HTMLElement {
   }
 
   const meta = el('div', 'post-meta');
-  meta.append(el('span', undefined, post.authorName));
+
+  // 作者姓名連往他的個人資料（§10.8）。
+  // authorId 只有成員視角才有值——posts_public 刻意不含它（ADR-0006 給訪客最小欄位），
+  // 所以訪客看到的是純文字而不是連結。這不是降級，是正確的：
+  // 成員名單帶有宗教信仰資訊，訪客本來就不該點得進去（§8.6）。
+  if (post.authorId !== null) {
+    const author = el('a', 'post-meta__author', post.authorName);
+    author.href = `/members/${post.authorId}`;
+    meta.append(author);
+  } else {
+    meta.append(el('span', undefined, post.authorName));
+  }
   const when = el('time');
   when.dateTime = post.createdAt.toISOString();
   when.textContent = stampFormat.format(post.createdAt);

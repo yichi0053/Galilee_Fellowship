@@ -10,6 +10,11 @@
 # 服務 /wall。實測 /new /post /member 均直接回 200 並送出正確的 HTML，
 # 證明這層解析是通的——多寫一條規則不但沒有幫助，還正是迴圈的來源。
 
+# /members 是「關於大家」，/member/* 是「關於我」。兩者不會互相吃到：
+# /member/* 要求 member 後面緊接 `/`，而 /members/x 那一格是 `s`。
+# /members 本身不需要規則——Pages 會自動以 members.html 服務它。
+/members/*       /members   200
+
 # /member/me/edit 必須排在 /member/* 之前，否則個人檔案頁會被萬用規則吃掉。
 /member/me/edit  /profile   200
 /post/new        /new       200

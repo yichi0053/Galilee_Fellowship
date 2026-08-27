@@ -26,14 +26,14 @@ beforeEach(() => {
 });
 
 describe('清單內容', () => {
-  it('一般成員：我的貼文與登出', () => {
+  it('一般成員：成員列表、我的貼文與登出', () => {
     const menu = userMenu({ viewer: MEMBER, onSignOut: vi.fn() });
-    expect(labels(menu)).toEqual(['我的貼文', '登出']);
+    expect(labels(menu)).toEqual(['成員列表', '我的貼文', '登出']);
   });
 
   it('管理員多一條後台入口，排在成員項目之後、登出之前（§4.1）', () => {
     const menu = userMenu({ viewer: ADMIN, onSignOut: vi.fn() });
-    expect(labels(menu)).toEqual(['我的貼文', '管理後台', '登出']);
+    expect(labels(menu)).toEqual(['成員列表', '我的貼文', '管理後台', '登出']);
     expect(menu.querySelector<HTMLAnchorElement>('a[href="/admin"]')).not.toBeNull();
   });
 

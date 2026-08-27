@@ -32,7 +32,14 @@ export type ProfilePatch = {
   readonly favoriteVerse?: string | null;
 };
 
+/** 成員列表上的一格。刻意只有辨識需要的欄位，個資留到點進去才讀 */
+export type MemberCard = {
+  readonly memberId: string;
+  readonly displayName: string;
+};
+
 export class NotAMemberError extends Error {}
+export class ProfileNotFoundError extends Error {}
 
 async function currentUserId(): Promise<string> {
   const { data, error } = await db.auth.getUser();
@@ -110,4 +117,53 @@ export async function updateMyProfile(patch: ProfilePatch): Promise<Profile> {
 function blankToNull(value: string | null): string | null {
   const trimmed = value?.trim() ?? '';
   return trimmed.length === 0 ? null : trimmed;
+}
+
+/**
+ * 房間裡的成員列表（§10.8 / ADR-0023）。
+ *
+ * 只列 active：退出與停權的人不該出現在「現在有誰」的名單上（§4.3）。
+ * 他們的貼文是否保留是另一回事，由牆頁的規則決定。
+ *
+ * 訪客讀不到任何一列——members_select policy 是 is_active_member(room_id)，
+ * 而成員名單帶有宗教信仰資訊、屬個資法第 6 條特種個人資料（§8.6）。
+ * 所以這裡不需要、也不該有「訪客分支」：拿到空陣列就是正確行為。
+ */
+export async function listRoomMembers(): Promise<ReadonlyArray<MemberCard>> {
+  const { data, error } = await db
+    .from('room_members')
+    .select('id, display_name')
+    .eq('room_id', ROOM_ID)
+    .eq('status', 'active')
+    .order('joined_at', { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []).map((row) => ({ memberId: row.id, displayName: row.display_name }));
+}
+
+/**
+ * 某位成員的個人檔案（§10.8）。
+ *
+ * 與 getMyProfile 的差別只在「查誰」：可見性由 members_select policy 決定，
+ * 不在這裡另做判斷。停權與退出的人刻意仍讀得到——
+ * 從舊貼文的作者連結點過去時，看到一頁空白比看到那個人的資料更難理解。
+ */
+export async function getProfileOf(memberId: string): Promise<Profile> {
+  const { data, error } = await db
+    .from('room_members')
+    .select('id, display_name, birthday, interests, favorite_verse')
+    .eq('room_id', ROOM_ID)
+    .eq('id', memberId)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) throw new ProfileNotFoundError('找不到這位成員。');
+
+  return {
+    memberId: data.id,
+    displayName: data.display_name,
+    birthday: data.birthday,
+    interests: data.interests,
+    favoriteVerse: data.favorite_verse,
+  };
 }

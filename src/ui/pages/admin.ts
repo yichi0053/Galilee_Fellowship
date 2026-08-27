@@ -30,6 +30,7 @@ import type { MemberSummary, RoomSettings } from '@modules/admin';
 import { shiftWeeks, weekStartOf } from '@domain/week';
 import type { WeekStart } from '@domain/week';
 import { getViewer } from '@modules/membership';
+import { initialAvatar } from '@ui/components/avatar';
 import { listThemesFrom, scheduleThemes } from '@modules/themes';
 
 const dateFormat = new Intl.DateTimeFormat('zh-TW', {
@@ -263,7 +264,12 @@ async function membersPanel(panel: HTMLElement): Promise<void> {
   const rows = el('div', 'rows');
   for (const m of members) {
     const row = el('div', 'row');
-    row.append(el('span', 'row__name', m.displayName));
+    // 與 /members 的成員列表用同一個頭像元件，兩邊看起來才是同一件事。
+    row.append(initialAvatar(m.displayName, 'row__avatar'));
+    const name = el('a', 'row__name');
+    name.href = `/members/${m.memberId}`;
+    name.textContent = m.displayName;
+    row.append(name);
 
     const status = el('span', 'badge', STATUS_LABEL[m.status]);
     status.dataset['status'] = m.status;

@@ -10,6 +10,7 @@
  */
 
 import { isEnabled } from '@config/features';
+import { initialAvatar } from '@ui/components/avatar';
 import type { Viewer } from '@modules/membership';
 
 export type UserMenuOptions = {
@@ -31,23 +32,8 @@ function el<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
-/**
- * 頭像載不到時的退路：姓名首字加一個由姓名決定的底色。
- *
- * 底色不能用隨機值——同一個人每次進來顏色都不同的話，那不是識別而是干擾。
- * 雜湊取色相，飽和度與亮度固定，確保深色底上的白字一定讀得到。
- */
-function initialAvatar(displayName: string): HTMLElement {
-  const node = el('span', 'user-menu__initial', [...displayName][0] ?? '?');
-  let hash = 0;
-  for (const ch of displayName) hash = (hash * 31 + ch.codePointAt(0)!) % 360;
-  node.style.setProperty('--hue', String(hash));
-  node.setAttribute('aria-hidden', 'true');
-  return node;
-}
-
 function avatar(displayName: string, avatarUrl: string | null): HTMLElement {
-  const fallback = initialAvatar(displayName);
+  const fallback = initialAvatar(displayName, 'user-menu__initial');
   if (avatarUrl === null) return fallback;
 
   const img = el('img', 'user-menu__avatar');
@@ -70,7 +56,10 @@ function avatar(displayName: string, avatarUrl: string | null): HTMLElement {
  * 未啟用的功能不渲染入口）。
  */
 function itemsFor(viewer: Viewer, onSignOut: () => void): MenuItem[] {
-  const items: MenuItem[] = [{ label: '我的貼文', href: '/member/me' }];
+  const items: MenuItem[] = [
+    { label: '成員列表', href: '/members' },
+    { label: '我的貼文', href: '/member/me' },
+  ];
 
   // 管理員的項目排在成員項目之後、登出之前：後台是額外的權限而不是另一種身分。
   if (viewer.kind === 'admin') items.push({ label: '管理後台', href: '/admin' });

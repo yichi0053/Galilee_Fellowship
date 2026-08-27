@@ -248,3 +248,18 @@ describe('照片放大檢視（§10.5）', () => {
     expect(document.querySelector<HTMLImageElement>('.zoom__img')?.src).toBe(shown);
   });
 })
+
+describe('作者姓名連往個人資料（§10.8）', () => {
+  it('成員看到的是連結，指向那位作者', async () => {
+    const app = await render({ post: makePost({ authorId: 'm-7' }) });
+    const author = app.querySelector<HTMLAnchorElement>('.post-meta__author');
+    expect(author?.getAttribute('href')).toBe('/members/m-7');
+    expect(author?.textContent).toBe(makePost().authorName);
+  });
+
+  it('訪客看到的是純文字——posts_public 不含 author_id，本來就不該點得進去', async () => {
+    const app = await render({ viewer: { kind: 'guest' }, post: makePost({ authorId: null }) });
+    expect(app.querySelector('.post-meta__author')).toBeNull();
+    expect(app.querySelector('.post-meta')?.textContent).toContain(makePost().authorName);
+  });
+});
