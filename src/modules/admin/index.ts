@@ -172,13 +172,13 @@ export async function listJoinAttempts(): Promise<ReadonlyArray<JoinAttempt>> {
 /**
  * 下架與復原（§9.5）。與作者的刪除是兩件事：
  * 下架設 hidden_by_admin，貼文仍在、作者仍看得到佔位，配額也不變動。
+ *
+ * 走 migration 010 的 admin_set_post_hidden 而不是直接 UPDATE：
+ * 該欄位的直接寫入權限已經收回。先前它是可以直接改的，
+ * 於是被下架的作者只要打一次 PostgREST 就能把自己的貼文放回來。
  */
 async function setHidden(id: PostId, hidden: boolean): Promise<void> {
-  const { error } = await db
-    .from('posts')
-    .update({ hidden_by_admin: hidden })
-    .eq('id', id)
-    .eq('room_id', ROOM_ID);
+  const { error } = await db.rpc('admin_set_post_hidden', { p_id: id, p_hidden: hidden });
   if (error) throw new Error(`${hidden ? '下架' : '復原'}失敗：${error.message}`);
 }
 

@@ -400,6 +400,10 @@ export type Database = {
       }
     }
     Functions: {
+      admin_set_post_hidden: {
+        Args: { p_hidden: boolean; p_id: string }
+        Returns: undefined
+      }
       current_week_start: { Args: never; Returns: string }
       is_active_member: { Args: { rid: string }; Returns: boolean }
       is_admin: { Args: { rid: string }; Returns: boolean }

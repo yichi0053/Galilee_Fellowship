@@ -438,6 +438,77 @@ async function main(): Promise<void> {
       rForge.status >= 400, `status=${rForge.status}`);
 
     // ---- §15.2 優先序 4：mask_name 純函式 ----
+    console.log('\nmigration 010：欄位層級權限（RLS 只管列，不管欄）');
+
+    // 這一組是 2026-08-27 以一般成員的 JWT 直打 PostgREST 發現的。
+    // posts_update policy 允許作者更新自己的貼文——而 policy 不認識欄位，
+    // 於是「自己的貼文」等於「這一列的每一欄」。三項當時都成功。
+    const owned = await createPost(memberA.memberId, '成員 A 的貼文，用來測試欄位層級權限。');
+
+    for (const [column, value, why] of [
+      ['counts_toward_quota', false, '自行回補配額，每週上限完全失效'],
+      ['hidden_by_admin', false, '自行復原被管理員下架的貼文'],
+      ['deleted_at', null, '自行還原已刪除的貼文'],
+      ['rotation_deg', 3, '事後重擲旋轉角（§11.2 說發布時決定一次）'],
+      ['week_start_date', '2020-01-06', '把貼文搬到別週，繞過當週配額'],
+    ] as const) {
+      const r = await rest(asA, `posts?id=eq.${owned}`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify({ [column]: value }),
+      });
+      check(`成員改不動自己貼文的 ${column}（否則可${why}）`,
+        r.status >= 400 || rows(r).length === 0, `status=${r.status}`);
+    }
+
+    // 修好權限如果順手把正常操作也擋死了會更糟，故兩個方向都驗。
+    const rEdit = await rest(asA, `posts?id=eq.${owned}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ body: '作者改過的內文，一樣要過得了十個字。' }),
+    });
+    check('作者仍改得動自己貼文的內文（§9.5：編輯不影響配額）',
+      rEdit.status === 200 && rows(rEdit).length === 1, `status=${rEdit.status}`);
+
+    const rHideAsMember = await rest(asA, 'rpc/admin_set_post_hidden', {
+      method: 'POST',
+      body: JSON.stringify({ p_id: owned, p_hidden: true }),
+    });
+    check('一般成員呼叫 admin_set_post_hidden 被拒 ← definer 的唯一防線',
+      rHideAsMember.status >= 400, `status=${rHideAsMember.status}`);
+
+    const rHideAsAdmin = await rest(asAdmin, 'rpc/admin_set_post_hidden', {
+      method: 'POST',
+      body: JSON.stringify({ p_id: owned, p_hidden: true }),
+    });
+    check('管理員下架得了貼文', rHideAsAdmin.status < 300, `status=${rHideAsAdmin.status}`);
+
+    console.log('\n管理員專屬操作，一般成員一律被拒');
+
+    const rRoomWrite = await rest(asA, `rooms?id=eq.${ROOM_ID}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ name: '被改掉了', join_open: true }),
+    });
+    check('成員改不動房間設定（含 join_open 這個 §8.4 的開關）',
+      deniedOrEmpty(rRoomWrite), `status=${rRoomWrite.status}`);
+
+    const rSuspendAdmin = await rest(asA, `room_members?id=eq.${adminUser.memberId}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ status: 'suspended' }),
+    });
+    check('成員停權不了管理員 ← 最惡劣的一種越權',
+      deniedOrEmpty(rSuspendAdmin), `status=${rSuspendAdmin.status}`);
+
+    const rSelfPromote = await rest(asA, `room_members?id=eq.${memberA.memberId}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ role: 'admin' }),
+    });
+    check('成員無法把自己升為管理員',
+      deniedOrEmpty(rSelfPromote), `status=${rSelfPromote.status}`);
+
     console.log('\nEdge Function：cleanup-posts（ADR-0009 的 30 天硬刪除）');
 
     // 這支函式以 service role 執行、繞過 RLS，所以它自己那段
