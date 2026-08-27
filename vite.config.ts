@@ -9,7 +9,12 @@ import type { Connect, Plugin } from 'vite';
  * 少了這段，/join 在本機是 404——而 OAuth 完成後 Google 導回的正是 /join，
  * 整個加入流程於是無法在本機走完，失敗還會被誤認為 OAuth 設定有問題。
  *
- * **本表與 public/_redirects 是同一組規則的兩份實作，改動時務必同時改。**
+ * **本表與 public/_redirects 不再是同一組規則。** 兩邊的宿主行為不同：
+ * Cloudflare Pages 本來就會以 wall.html 服務 /wall，且會把 .html 結尾的目標
+ * 308 轉回無副檔名形式（因此那邊的規則必須刪光精確路徑、目標不可寫 .html，
+ * 見該檔的說明）；Vite 沒有這層解析，六條都得自己補。
+ * 動到任何一邊時，請先讀另一邊的註解確認差異仍然成立。
+ *
  * 順序有意義：/post/new 必須排在 /post/* 之前。
  */
 const CLEAN_URLS: readonly (readonly [RegExp, string])[] = [

@@ -1,7 +1,15 @@
 # Cloudflare Pages 路由（架構書 §10.1）
-/wall            /wall.html      200
-/join            /join.html      200
-/admin           /admin.html     200
-/post/new        /new.html       200
-/post/*          /post.html      200
-/member/*        /member.html    200
+#
+# **目標一律不可寫 .html。** Pages 會把任何 .html 結尾的路徑 308 轉回無副檔名形式
+# （實測 /wall.html -> 308 -> /wall），而這層正規化也會套用在本檔規則的目標上。
+# 於是 `/wall  /wall.html  200` 展開成 /wall -> 308 -> /wall 的無窮迴圈，
+# 萬用規則 `/post/*  /post.html  200` 則會連 :splat 一起被吃掉，變成 /post。
+# 2026-08-27 首次部署時，整站除了 / 之外每一條路由都是這樣壞掉的。
+#
+# /wall、/join、/admin 三條精確路徑刻意不寫規則：Pages 本來就會以 wall.html
+# 服務 /wall。實測 /new /post /member 均直接回 200 並送出正確的 HTML，
+# 證明這層解析是通的——多寫一條規則不但沒有幫助，還正是迴圈的來源。
+
+/post/new        /new       200
+/post/*          /post      200
+/member/*        /member    200
