@@ -59,12 +59,36 @@ supabase/
 每個 module 只以 `index.ts` 對外。詳見 [CONTEXT.md](CONTEXT.md) 與
 [ADR-0016](docs/adr/0016-frontend-stack.md)。
 
-## 目前進度
+## 1.0（2026-08-28）
 
-| 階段 | 工單 | 狀態 |
-|---|---|---|
-| 一 骨架與制度 | T-01 | ✅ 完成（Supabase dev 專案、Google OAuth 已設定並實測通過） |
-| 二 資料層與 RLS | T-02、T-03 | ✅ migration 已套用至 dev 專案，`verify:rls` 21 項全過 |
-| 三 Tracer bullet | T-04、T-07 | ✅ `auth`／`membership` 實作完成，join-room 已部署並冒煙測試（頁面於階段五）|
-| 四 深模組補完 | T-05、T-06 | ✅ 純邏輯完成，47 項測試全過 |
-| 五 牆頁與其餘頁面 | T-08 至 T-13 | ✅ 七個頁面全部完成（`/`、`/wall`、`/join`、`/post/new`、`/post/:id`、`/member/me`、`/admin`）|
+上線中：<https://galilee-fellowship.pages.dev>
+
+第一期的功能全部完成並部署。資料庫、前端、排程三者對齊。
+
+| 面向 | 現況 |
+|---|---|
+| 頁面 | 9 個入口：`/`、`/wall`、`/join`、`/post/new`、`/post/:id`、`/member/me`、`/member/me/edit`、`/members`、`/admin` |
+| 資料層 | migration 001 至 013 全部套用於正式專案，RLS 與欄位層級權限逐項驗證 |
+| 排程 | Keepalive（每兩天）與 Cleanup（每月 1 日）皆為綠燈 |
+| 測試 | 232 項；程式 5,929 行、測試 2,634 行 |
+| 決策紀錄 | 23 則 ADR |
+
+### 1.0 的功能
+
+- **牆**：依週分區的 masonry，一次顯示一週，週次選擇器釘在頂端
+- **貼文**：標題加選填內文、上傳時可拖曳決定縮圖範圍、20 分鐘內可自行刪除
+- **成員**：Google 登入加房間碼、個人檔案（生日／興趣／經節）、成員列表
+- **管理**：房間設定、18 週主題預排、成員停權與退出、下架與復原、30 天清理
+
+### 不在 1.0 裡（ADR-0013 的後續分期）
+
+`memberFilter`、`randomThrowback`、`profile` 之外的第三期以後功能，
+以及**貼文編輯**（ADR-0019：現階段的替代路徑是 20 分鐘內刪掉重發）。
+
+### 已知的取捨
+
+- **單一管理員**是已知的單點失效，復原路徑寫在 [OPERATIONS.md](docs/OPERATIONS.md)（ADR-0014）
+- **`verify:rls` 目前停用**：正式專案只有一個，護欄擋住那支會建立測試帳號的腳本。
+  下次動 schema 前應補開一個 dev 專案（ADR-0018）
+- **成員列表沒有人臉**：Google 頭像只有本人的 session 拿得到（ADR-0023）
+- 逾期後成員無法自行刪除貼文，只能請管理員下架（ADR-0021）
