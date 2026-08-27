@@ -20,10 +20,16 @@ const mocks = vi.hoisted(() => ({
   listJoinAttempts: vi.fn(),
   listSoftDeleted: vi.fn(),
   runCleanup: vi.fn(),
+  listThemesFrom: vi.fn(),
+  scheduleThemes: vi.fn(),
 }));
 
 vi.mock('@modules/membership', () => ({ getViewer: mocks.getViewer }));
 vi.mock('@modules/admin', () => ({ ...mocks, WeakJoinCodeError: class extends Error {} }));
+vi.mock('@modules/themes', () => ({
+  listThemesFrom: mocks.listThemesFrom,
+  scheduleThemes: mocks.scheduleThemes,
+}));
 
 const ADMIN: Viewer = { kind: 'admin', memberId: 'm-9', displayName: '負責人' };
 const ROOM: RoomSettings = {
@@ -59,6 +65,8 @@ async function render(options: { viewer?: Viewer; members?: MemberSummary[] } = 
   mocks.reinstateMember.mockResolvedValue(undefined);
   mocks.markMemberLeft.mockResolvedValue(undefined);
   mocks.runCleanup.mockResolvedValue({ deletedRows: 0, deletedObjects: 0 });
+  mocks.listThemesFrom.mockResolvedValue([]);
+  mocks.scheduleThemes.mockResolvedValue([]);
 
   vi.resetModules();
   await import('./admin');
@@ -95,7 +103,7 @@ describe('/admin 的存取', () => {
   it('管理員看到四個分頁，預設落在房間設定', async () => {
     const app = await render();
     const labels = Array.from(app.querySelectorAll('.admin-tab')).map((t) => t.textContent);
-    expect(labels).toEqual(['房間設定', '加入紀錄', '成員管理', '貼文管理']);
+    expect(labels).toEqual(['房間設定', '主題排程', '成員管理', '貼文管理']);
     expect(app.querySelector('.admin-tab[aria-current="true"]')?.textContent).toBe('房間設定');
   });
 });
@@ -179,5 +187,43 @@ describe('/admin 貼文管理（ADR-0009）', () => {
     await clickByText(app, '執行清理');
     expect(mocks.runCleanup).toHaveBeenCalled();
     expect(app.querySelector('.paper-message')?.textContent).toContain('3 則貼文與 6 個檔案');
+  });
+});
+
+describe('/admin 主題排程（§9.6）', () => {
+  it('一次排出一整學期 18 週', async () => {
+    const app = await render();
+    await openTab(app, '主題排程');
+    expect(app.querySelectorAll('.rows .row').length).toBe(18);
+    expect(mocks.listThemesFrom).toHaveBeenCalled();
+  });
+
+  it('留白的那幾週照樣送出——那是「這週沒有主題」的表達方式，不是漏填', async () => {
+    const app = await render();
+    await openTab(app, '主題排程');
+    const first = app.querySelector<HTMLInputElement>('.row .paper-input');
+    if (first) first.value = '今天的晚餐，跟誰吃的';
+
+    app.querySelector('form')?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    await new Promise((r) => setTimeout(r, 0));
+
+    const drafts = mocks.scheduleThemes.mock.calls[0]?.[0] as { title: string }[];
+    expect(drafts).toHaveLength(18);
+    expect(drafts[0]?.title).toBe('今天的晚餐，跟誰吃的');
+    expect(drafts[1]?.title).toBe('');
+  });
+});
+
+describe('/admin 加入紀錄（§8.3）', () => {
+  it('併在成員管理底下，因為會來看它的時機幾乎都是有人加不進來', async () => {
+    const app = await render();
+    // render() 會把所有 mock 設成預設值，所以這一筆必須在它之後、切分頁之前才設。
+    mocks.listJoinAttempts.mockResolvedValue([
+      { displayName: null, success: false, at: new Date('2026-08-27T02:00:00Z') },
+    ]);
+    await openTab(app, '成員管理');
+    expect(app.textContent).toContain('最近的加入嘗試');
+    expect(app.textContent).toContain('（尚未加入的人）');
+    expect(app.textContent).toContain('失敗');
   });
 });

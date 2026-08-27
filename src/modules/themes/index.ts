@@ -54,9 +54,70 @@ export async function getThemeForWeek(week: WeekStart): Promise<Theme | null> {
   };
 }
 
-/** 管理員預排多週主題。同一週重複設定為覆寫（unique room_id, week_start_date） */
+/**
+ * 從某一週起算的主題清單，供後台排程介面顯示（§9.6）。
+ *
+ * 讀 themes_public：欄位與本表相同，且管理員與訪客走同一條路少一種分支。
+ */
+export async function listThemesFrom(week: WeekStart): Promise<ReadonlyArray<Theme>> {
+  const { data, error } = await db
+    .from('themes_public')
+    .select('id, week_start_date, title, description')
+    .eq('room_id', ROOM_ID)
+    .gte('week_start_date', week)
+    .order('week_start_date', { ascending: true });
+
+  if (error) throw error;
+
+  return (data ?? []).flatMap((t) =>
+    t.id === null || t.week_start_date === null || t.title === null
+      ? []
+      : [
+          {
+            id: t.id,
+            week: parseWeekStart(t.week_start_date),
+            title: t.title,
+            description: t.description,
+          },
+        ],
+  );
+}
+
+/**
+ * 管理員預排多週主題。同一週重複設定為覆寫（unique room_id, week_start_date）。
+ *
+ * 標題留白代表**刪掉那一週的主題**，而不是存一個空字串——
+ * 後台的排程介面是一排輸入框，清空某一格是最自然的「我不要這週有主題」的表達方式。
+ */
 export async function scheduleThemes(
-  _drafts: ReadonlyArray<Omit<Theme, 'id'>>,
+  drafts: ReadonlyArray<Omit<Theme, 'id'>>,
 ): Promise<ReadonlyArray<Theme>> {
-  throw new Error('T-10 未實作');
+  const blank = drafts.filter((d) => d.title.trim() === '');
+  const filled = drafts.filter((d) => d.title.trim() !== '');
+
+  if (blank.length > 0) {
+    const { error } = await db
+      .from('themes')
+      .delete()
+      .eq('room_id', ROOM_ID)
+      .in('week_start_date', blank.map((d) => d.week));
+    if (error) throw new Error(`刪除主題失敗：${error.message}`);
+  }
+
+  if (filled.length > 0) {
+    const { error } = await db.from('themes').upsert(
+      filled.map((d) => ({
+        room_id: ROOM_ID,
+        week_start_date: d.week,
+        title: d.title.trim(),
+        description: d.description?.trim() || null,
+      })),
+      // 唯一鍵是 (room_id, week_start_date)：同一週重複設定為覆寫而非新增一列，
+      // 否則 §9.6 的「預排」會在改動時堆出兩筆而 getThemeForWeek 只拿得到其中一筆。
+      { onConflict: 'room_id,week_start_date' },
+    );
+    if (error) throw new Error(`儲存主題失敗：${error.message}`);
+  }
+
+  return drafts.length === 0 ? [] : listThemesFrom(drafts[0]!.week);
 }

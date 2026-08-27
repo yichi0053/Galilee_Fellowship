@@ -25,7 +25,10 @@ import {
   updateRoomSettings,
 } from '@modules/admin';
 import type { MemberSummary, RoomSettings } from '@modules/admin';
+import { shiftWeeks, weekStartOf } from '@domain/week';
+import type { WeekStart } from '@domain/week';
 import { getViewer } from '@modules/membership';
+import { listThemesFrom, scheduleThemes } from '@modules/themes';
 
 const dateFormat = new Intl.DateTimeFormat('zh-TW', {
   timeZone: 'Asia/Taipei',
@@ -158,36 +161,81 @@ async function roomPanel(panel: HTMLElement): Promise<void> {
   });
 }
 
-// --------------------------------------------------- 分頁 2：加入紀錄 ---
+// --------------------------------------------------- 分頁 2：主題排程 ---
 
-async function attemptsPanel(panel: HTMLElement): Promise<void> {
-  const attempts = await listJoinAttempts();
+/** 一學期 18 週（README）。一次排完，之後只需要偶爾回來調整 */
+const WEEKS_AHEAD = 18;
+
+function weekLabel(week: WeekStart, current: WeekStart): string {
+  const label = week.replace(/-/g, '/').slice(5);
+  return week === current ? `${label}（本週）` : label;
+}
+
+async function themesPanel(panel: HTMLElement): Promise<void> {
+  const current = weekStartOf();
+  const existing = new Map((await listThemesFrom(current)).map((t) => [t.week, t]));
 
   panel.append(
     el(
       'p',
       'admin-panel__lead',
-      '最近 50 次加入嘗試（§8.3）。連續失敗多半只是有人打錯字；' +
-        '若同一時間出現大量失敗，把上一頁的「開放加入」關掉即可讓房間碼失效。',
+      '§9.6：忘記設定的那一週會出現空窗，而空窗週的發文量通常斷崖下滑，' +
+        '所以預排是必要功能而不是便利功能。標題留白代表那一週沒有主題，' +
+        '成員只能發自由貼文。過期的主題不可補發。',
     ),
   );
 
-  if (attempts.length === 0) {
-    panel.append(el('p', 'empty-note', '還沒有人嘗試加入。'));
-    return;
+  const form = el('form');
+  form.noValidate = true;
+  const rows = el('div', 'rows');
+
+  const inputs: { week: WeekStart; title: HTMLInputElement; desc: HTMLInputElement }[] = [];
+
+  for (let i = 0; i < WEEKS_AHEAD; i += 1) {
+    const week = shiftWeeks(current, i);
+    const theme = existing.get(week);
+
+    const row = el('div', 'row');
+    row.append(el('span', 'row__meta', weekLabel(week, current)));
+
+    const title = el('input', 'paper-input');
+    title.type = 'text';
+    title.value = theme?.title ?? '';
+    title.placeholder = '主題標題（留白＝這週沒有主題）';
+
+    const desc = el('input', 'paper-input');
+    desc.type = 'text';
+    desc.value = theme?.description ?? '';
+    desc.placeholder = '補充說明（可留白）';
+
+    row.append(title, desc);
+    rows.append(row);
+    inputs.push({ week, title, desc });
   }
 
-  const rows = el('div', 'rows');
-  for (const a of attempts) {
-    const row = el('div', 'row');
-    row.append(el('span', 'row__name', a.displayName ?? '（尚未加入的人）'));
-    const badge = el('span', 'badge', a.success ? '成功' : '失敗');
-    badge.dataset['ok'] = String(a.success);
-    row.append(badge);
-    row.append(el('span', 'row__meta', dateFormat.format(a.at)));
-    rows.append(row);
-  }
-  panel.append(rows);
+  const save = el('button', 'paper-button', '儲存主題排程');
+  save.type = 'submit';
+  form.append(rows, save);
+  panel.append(form);
+
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    save.disabled = true;
+    save.textContent = '儲存中…';
+    void (async () => {
+      try {
+        const result = await scheduleThemes(
+          inputs.map((i) => ({ week: i.week, title: i.title.value, description: i.desc.value })),
+        );
+        notify(panel, 'info', `已儲存。從本週起共 ${result.length} 週有主題。`);
+      } catch (error: unknown) {
+        notify(panel, 'error', error instanceof Error ? error.message : '儲存失敗。');
+      } finally {
+        save.disabled = false;
+        save.textContent = '儲存主題排程';
+      }
+    })();
+  });
 }
 
 // --------------------------------------------------- 分頁 3：成員管理 ---
@@ -263,6 +311,36 @@ async function membersPanel(panel: HTMLElement): Promise<void> {
     rows.append(row);
   }
   panel.append(rows);
+
+  // §8.3 的稽核紀錄。放在成員管理底下而不是自己一個分頁：
+  // 會來看它的時機幾乎都是「有人說加不進來」，而那時你已經在這一頁了。
+  const attempts = await listJoinAttempts();
+  panel.append(el('h2', 'paper-field__label', '最近的加入嘗試'));
+  panel.append(
+    el(
+      'p',
+      'admin-panel__lead',
+      '最多 50 筆。連續失敗多半只是有人打錯字；若同一時間出現大量失敗，' +
+        '到「房間設定」把開放加入關掉即可讓房間碼立即失效。',
+    ),
+  );
+
+  if (attempts.length === 0) {
+    panel.append(el('p', 'empty-note', '還沒有人嘗試加入。'));
+    return;
+  }
+
+  const attemptRows = el('div', 'rows');
+  for (const a of attempts) {
+    const row = el('div', 'row');
+    row.append(el('span', 'row__name', a.displayName ?? '（尚未加入的人）'));
+    const badge = el('span', 'badge', a.success ? '成功' : '失敗');
+    badge.dataset['ok'] = String(a.success);
+    row.append(badge);
+    row.append(el('span', 'row__meta', dateFormat.format(a.at)));
+    attemptRows.append(row);
+  }
+  panel.append(attemptRows);
 }
 
 // --------------------------------------------------- 分頁 4：貼文管理 ---
@@ -328,12 +406,12 @@ async function postsPanel(panel: HTMLElement): Promise<void> {
 
 // ------------------------------------------------------------- 外框 ---
 
-type TabId = 'room' | 'attempts' | 'members' | 'posts';
+type TabId = 'room' | 'themes' | 'members' | 'posts';
 
 const TABS: ReadonlyArray<{ id: TabId; label: string; render: (p: HTMLElement) => Promise<void> }> =
   [
     { id: 'room', label: '房間設定', render: roomPanel },
-    { id: 'attempts', label: '加入紀錄', render: attemptsPanel },
+    { id: 'themes', label: '主題排程', render: themesPanel },
     { id: 'members', label: '成員管理', render: membersPanel },
     { id: 'posts', label: '貼文管理', render: postsPanel },
   ];
