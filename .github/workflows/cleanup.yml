@@ -1,0 +1,50 @@
+# 架構書 §9.5 / ADR-0009：軟刪除滿 30 天後連同照片一起硬刪除。
+#
+# 為什麼需要這支 workflow：
+# 原本 migration 004 用 pg_cron 排一支 SQL 函式，但 Supabase 禁止以 SQL 直接刪
+# storage.objects，那支函式從來沒有成功執行過（migration 009 已將它退場）。
+# 現在的唯一路徑是 cleanup-posts Edge Function，而它原本只能由管理員在 /admin 手動觸發。
+#
+# 沒有這支的話，「30 天後真的刪除」就取決於有沒有人記得去按那顆按鈕——
+# 而成員按下刪除時，期待的是照片會消失，不是留在公開 bucket 裡等人想起來。
+name: Cleanup deleted posts
+
+on:
+  schedule:
+    # 每月 1 日 UTC 03:30（台灣時間 11:30）。清理是冪等的，跑多跑少都不會出錯。
+    - cron: '30 3 1 * *'
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 觸發 cleanup-posts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          CLEANUP_CRON_SECRET: ${{ secrets.CLEANUP_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${CLEANUP_CRON_SECRET:-}" ]; then
+            echo "::error::缺少 CLEANUP_CRON_SECRET secret，見 docs/SETUP.md 第 7.3 節"
+            exit 1
+          fi
+
+          # 刻意不用 service role key：那把鑰匙繞過所有 RLS。
+          # 這個 secret 只能觸發清理，而清理只刪滿 30 天的東西且冪等。
+          status=$(curl -sS -o /tmp/body.txt -w '%{http_code}' -X POST \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "x-cron-secret: ${CLEANUP_CRON_SECRET}" \
+            -H 'Content-Type: application/json' \
+            -d '{}' \
+            "${SUPABASE_URL}/functions/v1/cleanup-posts")
+
+          echo "HTTP ${status}"
+          cat /tmp/body.txt
+
+          if [ "${status}" != "200" ]; then
+            echo "::error::清理失敗。ADR-0009 承諾 30 天硬刪除，失敗代表已刪除的照片仍公開可存取"
+            exit 1
+          fi

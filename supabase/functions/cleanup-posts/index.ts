@@ -25,10 +25,21 @@ function cors(req: Request): Record<string, string> {
     // 回送請求端問的那組，理由同 join-room：寫死的清單遲早漏掉 supabase-js 的新標頭，
     // 而漏掉時 preflight 仍回 200，瀏覽器靜靜擋下請求，伺服器端毫無記錄。
     'Access-Control-Allow-Headers':
-      req.headers.get('Access-Control-Request-Headers') ?? 'authorization, content-type, apikey',
+      req.headers.get('Access-Control-Request-Headers') ??
+      'authorization, content-type, apikey, x-cron-secret',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Max-Age': '86400',
   };
+}
+
+/** 定時比較。與 join-room 同一份理由：這幾行的成本低到不值得留下一個要解釋的問題 */
+function timingSafeEqual(a: string, b: string): boolean {
+  const ab = new TextEncoder().encode(a);
+  const bb = new TextEncoder().encode(b);
+  let diff = ab.length ^ bb.length;
+  const len = Math.max(ab.length, bb.length);
+  for (let i = 0; i < len; i++) diff |= (ab[i] ?? 0) ^ (bb[i] ?? 0);
+  return diff === 0;
 }
 
 function json(req: Request, body: unknown, status = 200): Response {
@@ -46,28 +57,41 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
   const ROOM_ID = Deno.env.get('ROOM_ID')!;
-
-  // ---- 1. 只有管理員能觸發 ----
-  const asUser = createClient(SUPABASE_URL, ANON_KEY, {
-    global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
-  });
-  const { data: userData } = await asUser.auth.getUser();
-  const user = userData?.user;
-  if (!user) return json(req, { error: 'unauthenticated' }, 401);
+  const CRON_SECRET = Deno.env.get('CLEANUP_CRON_SECRET') ?? '';
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
-  // service role 繞過 RLS，所以「你是不是管理員」必須自己查，
-  // 且以 auth.uid() 反查 room_members，不信任呼叫端傳來的任何 id。
-  const { data: member } = await admin
-    .from('room_members')
-    .select('role, status')
-    .eq('room_id', ROOM_ID)
-    .eq('user_id', user.id)
-    .maybeSingle();
+  // ---- 1. 兩種身分可以觸發：管理員本人，或帶著 cron secret 的排程 ----
+  //
+  // 排程那條路刻意不用 service role key：那把鑰匙繞過所有 RLS，
+  // 放進 GitHub secrets 等於把整個資料庫的寫入權交出去。
+  // 這個 secret 只能做一件事——觸發清理，而清理本身是冪等且只刪滿 30 天的東西。
+  const presented = req.headers.get('x-cron-secret') ?? '';
+  const viaCron =
+    CRON_SECRET.length > 0 &&
+    presented.length === CRON_SECRET.length &&
+    timingSafeEqual(presented, CRON_SECRET);
 
-  if (!member || member.role !== 'admin' || member.status !== 'active') {
-    return json(req, { error: 'forbidden' }, 403);
+  if (!viaCron) {
+    const asUser = createClient(SUPABASE_URL, ANON_KEY, {
+      global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
+    });
+    const { data: userData } = await asUser.auth.getUser();
+    const user = userData?.user;
+    if (!user) return json(req, { error: 'unauthenticated' }, 401);
+
+    // service role 繞過 RLS，所以「你是不是管理員」必須自己查，
+    // 且以 auth.uid() 反查 room_members，不信任呼叫端傳來的任何 id。
+    const { data: member } = await admin
+      .from('room_members')
+      .select('role, status')
+      .eq('room_id', ROOM_ID)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (!member || member.role !== 'admin' || member.status !== 'active') {
+      return json(req, { error: 'forbidden' }, 403);
+    }
   }
 
   // ---- 2. 找出到期的貼文 ----

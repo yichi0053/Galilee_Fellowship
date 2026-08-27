@@ -292,14 +292,25 @@ select id, name from rooms;
 
 ### 7.3 維運
 
-- [ ] **GitHub secrets**：`SUPABASE_URL`、`SUPABASE_ANON_KEY`，然後手動觸發一次 keepalive
-- [ ] **注意 GitHub 的 60 天規則**：repo 連續 60 天沒有 commit，scheduled workflow 會被自動停用。
-      18 週是 126 天，一定會走到那一格，而失效是安靜的（只寄一封信）。
-      解法二選一：讓 keepalive 自己 commit 一個時間戳，或改以 UptimeRobot 為主力。
-- [ ] **`cleanup-posts` 沒有自動排程**。pg_cron 那條路已由 migration 009 移除
-      （Supabase 禁止以 SQL 刪 storage 物件）。目前唯一的觸發點是 `/admin` →
-      貼文管理 → 執行清理。ADR-0009 承諾 30 天硬刪除，所以**至少每月按一次**，
-      或另外接一個排程去打那支 function。
+- [ ] **把 repo 推上 GitHub**。兩支排程 workflow 都得在 GitHub 上才會跑。
+- [ ] **GitHub repo secrets** 三個：
+
+      | Secret | 值 |
+      |---|---|
+      | `SUPABASE_URL` | 同 `.env` 的 `VITE_SUPABASE_URL` |
+      | `SUPABASE_ANON_KEY` | 同 `.env` 的 `VITE_SUPABASE_ANON_KEY` |
+      | `CLEANUP_CRON_SECRET` | 同 `.env` 的同名變數（已一併設進 Supabase 的 function secret）|
+
+      `CLEANUP_CRON_SECRET` 刻意不是 service role key：那把鑰匙繞過所有 RLS，
+      放進 GitHub 等於交出整個資料庫的寫入權。這個 secret 只能觸發清理，
+      而清理是冪等的、只刪滿 30 天的東西。
+
+- [ ] **兩支 workflow 各手動觸發一次**（Actions 分頁 → Run workflow），確認綠燈：
+      `Keepalive`（每兩天）與 `Cleanup deleted posts`（每月 1 日）。
+- [ ] **60 天規則已由 keepalive 自行處理**：GitHub 會停用 repo 連續 60 天無 commit 的
+      scheduled workflow，而學期是 126 天。workflow 會在距上次 commit 滿 50 天時
+      自己 commit 一個時間戳。若你把 repo 設為需要 PR 才能推 main，這一步會失敗——
+      那種情況改設 UptimeRobot 當主力（`OPERATIONS.md` 第 3 節）。
 
 ### 7.4 清掉開發殘留
 
