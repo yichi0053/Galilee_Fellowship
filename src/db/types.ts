@@ -400,13 +400,6 @@ export type Database = {
       }
     }
     Functions: {
-      cleanup_deleted_posts: {
-        Args: never
-        Returns: {
-          deleted_objects: number
-          deleted_rows: number
-        }[]
-      }
       current_week_start: { Args: never; Returns: string }
       is_active_member: { Args: { rid: string }; Returns: boolean }
       is_admin: { Args: { rid: string }; Returns: boolean }

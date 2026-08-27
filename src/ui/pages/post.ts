@@ -12,6 +12,7 @@ import '@ui/styles/wall.css';
 import '@ui/styles/paper.css';
 import '@ui/styles/post-detail.css';
 
+import { hidePost, unhidePost } from '@modules/admin';
 import { getViewer } from '@modules/membership';
 import type { Viewer } from '@modules/membership';
 import { deletePost, getPost } from '@modules/posts';
@@ -131,6 +132,50 @@ function ownerActions(post: Post): HTMLElement {
 
 // ------------------------------------------------------------- 畫面 ---
 
+/**
+ * 管理員的下架／復原（§9.5）。與作者的刪除是兩件事：
+ * 下架設 hidden_by_admin，貼文與照片都還在，作者仍看得到佔位，配額也不變動。
+ * 放在這一頁而不是後台的清單裡——要下架一則貼文，總得先看見它。
+ */
+function adminActions(post: Post): HTMLElement {
+  const box = el('section', 'owner');
+  const hidden = post.hiddenByAdmin;
+
+  box.append(
+    el(
+      'span',
+      'owner__countdown',
+      hidden
+        ? '這則目前已下架，只有作者看得到。'
+        : '下架之後只有作者看得到，照片與資料都還在，配額也不受影響。',
+    ),
+  );
+
+  const button = el(
+    'button',
+    hidden ? 'paper-button' : 'paper-button paper-button--danger',
+    hidden ? '復原這則貼文' : '下架這則貼文',
+  );
+  button.type = 'button';
+  button.addEventListener('click', () => {
+    button.disabled = true;
+    button.textContent = hidden ? '復原中…' : '下架中…';
+    void (hidden ? unhidePost(post.id) : hidePost(post.id)).then(
+      () => window.location.reload(),
+      (error: unknown) => {
+        button.disabled = false;
+        button.textContent = hidden ? '復原這則貼文' : '下架這則貼文';
+        box.append(
+          message('error', error instanceof Error ? error.message : '操作失敗，請再試一次。'),
+        );
+      },
+    );
+  });
+
+  box.append(button);
+  return box;
+}
+
 function postView(post: Post, viewer: Viewer): HTMLElement {
   const box = card();
 
@@ -164,6 +209,8 @@ function postView(post: Post, viewer: Viewer): HTMLElement {
   box.append(meta);
 
   if (isAuthor) box.append(ownerActions(post));
+  // 管理員也可能是作者。兩組操作各自獨立，同時出現是正常的（§4.1：管理員繼承成員權限）。
+  if (viewer.kind === 'admin') box.append(adminActions(post));
   box.append(backLink());
   return box;
 }

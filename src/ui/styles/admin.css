@@ -1,0 +1,120 @@
+/*
+ * /admin 專屬樣式（架構書 §9.7）。
+ * 卡片與表單元件共用 paper.css。
+ */
+
+.admin-page { padding: 1rem 0.75rem 4rem; }
+
+.admin-shell { max-width: 44rem; margin: 0 auto; }
+
+.admin-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.75rem;
+  color: #f6f1e7;
+}
+
+.admin-head__title { margin: 0; font-size: 1.15rem; font-weight: 700; }
+.admin-head__back { margin-left: auto; font-size: 0.8rem; color: #f6f1e7; }
+
+/* ---------------------------------------------------------- 分頁 --- */
+
+.admin-tabs {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin-bottom: 0.75rem;
+}
+
+.admin-tabs::-webkit-scrollbar { display: none; }
+
+.admin-tab {
+  flex: none;
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.8rem;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  background: rgb(255 255 255 / 18%);
+  color: #f6f1e7;
+}
+
+.admin-tab[aria-current="true"] { background: var(--card); color: var(--ink); font-weight: 600; }
+
+.admin-panel {
+  background: var(--card);
+  border-radius: 2px;
+  padding: 1.1rem 1.1rem 1.25rem;
+  box-shadow: 0 8px 20px rgb(0 0 0 / 20%);
+}
+
+.admin-panel__lead {
+  margin: 0 0 1rem;
+  font-size: 0.82rem;
+  line-height: 1.65;
+  color: var(--ink-soft);
+}
+
+/* ---------------------------------------------------------- 清單 --- */
+
+.rows { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.75rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid rgb(0 0 0 / 10%);
+  border-radius: 3px;
+}
+
+.row__name { font-weight: 600; font-size: 0.9rem; }
+.row__meta { font-size: 0.78rem; color: var(--ink-soft); }
+.row__actions { margin-left: auto; display: flex; gap: 0.35rem; }
+
+.badge {
+  font-size: 0.72rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 8%);
+  color: var(--ink-soft);
+}
+
+.badge[data-status="active"]    { background: #dff0e4; color: #2f6b41; }
+.badge[data-status="suspended"] { background: #fdecea; color: #8a2e27; }
+.badge[data-status="left"]      { background: rgb(0 0 0 / 8%); }
+.badge[data-role="admin"]       { background: #e8e2f3; color: #4b3b74; }
+.badge[data-ok="false"]         { background: #fdecea; color: #8a2e27; }
+
+.mini {
+  font-family: inherit;
+  font-size: 0.78rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 3px;
+  border: 1px solid rgb(0 0 0 / 18%);
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.mini:hover:not([disabled]) { background-color: #f4f1ea; }
+.mini[disabled] { opacity: 0.5; cursor: not-allowed; }
+.mini--danger { border-color: #8a2e27; color: #8a2e27; }
+.mini--danger:hover:not([disabled]) { background-color: #fdecea; }
+
+.empty-note {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* ------------------------------------------------------ 房間碼 --- */
+
+.code-row { display: flex; gap: 0.4rem; }
+.code-row .paper-input { flex: 1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }

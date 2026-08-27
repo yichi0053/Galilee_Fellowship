@@ -14,14 +14,18 @@ const mocks = vi.hoisted(() => ({
   getViewer: vi.fn(),
   getPost: vi.fn(),
   deletePost: vi.fn(),
+  hidePost: vi.fn(),
+  unhidePost: vi.fn(),
 }));
 
 vi.mock('@modules/membership', () => ({ getViewer: mocks.getViewer }));
 vi.mock('@modules/posts', () => ({ getPost: mocks.getPost, deletePost: mocks.deletePost }));
+vi.mock('@modules/admin', () => ({ hidePost: mocks.hidePost, unhidePost: mocks.unhidePost }));
 
 const POST_ID = '11497c3e-ce30-4398-8390-63925d87af89';
 const AUTHOR: Viewer = { kind: 'member', memberId: 'm-1', displayName: '陳小明' };
 const OTHER: Viewer = { kind: 'member', memberId: 'm-2', displayName: '林大華' };
+const ADMIN: Viewer = { kind: 'admin', memberId: 'm-9', displayName: '負責人' };
 
 function makePost(over: Partial<Post> = {}): Post {
   return {
@@ -48,6 +52,7 @@ async function render(
   Object.defineProperty(window, 'location', {
     value: {
       replace: vi.fn(),
+      reload: vi.fn(),
       pathname: options.path ?? `/post/${POST_ID}`,
       href: `http://localhost:5173${options.path ?? `/post/${POST_ID}`}`,
     },
@@ -76,7 +81,13 @@ async function clickThrough(app: HTMLElement, labels: string[]): Promise<void> {
   }
 }
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  // 這兩支回傳 Promise<void>，mock 不給值的話 vi.fn() 回 undefined，
+  // 程式碼對它呼叫 .then 就會炸——那是測試沒設好，不是實作有問題。
+  mocks.hidePost.mockResolvedValue(undefined);
+  mocks.unhidePost.mockResolvedValue(undefined);
+});
 
 describe('/post/:id 的可見性', () => {
   it('作者看得到刪除按鈕與回補倒數', async () => {
@@ -151,5 +162,38 @@ describe('/post/:id 的刪除流程（ADR-0009：無法復原）', () => {
     expect(app.querySelector('.paper-message--error')?.textContent).toContain('只能刪除自己的貼文');
     expect(deleteButton(app)?.textContent).toBe('刪除這則貼文');
     expect(window.location.replace).not.toHaveBeenCalled();
+  });
+});
+
+describe('/post/:id 的管理員操作（§9.5）', () => {
+  it('管理員看得到下架按鈕，一般成員看不到', async () => {
+    const asAdmin = await render({ viewer: ADMIN });
+    expect(asAdmin.textContent).toContain('下架這則貼文');
+
+    const asMember = await render({ viewer: OTHER });
+    expect(asMember.textContent).not.toContain('下架這則貼文');
+  });
+
+  it('已下架的貼文，管理員看到的是復原而不是再下架一次', async () => {
+    const app = await render({ viewer: ADMIN, post: makePost({ hiddenByAdmin: true }) });
+    expect(app.textContent).toContain('復原這則貼文');
+    expect(app.textContent).not.toContain('下架這則貼文');
+  });
+
+  it('下架呼叫 hidePost，復原呼叫 unhidePost —— 這兩顆最不能接反', async () => {
+    const app = await render({ viewer: ADMIN });
+    await clickThrough(app, ['下架這則貼文']);
+    expect(mocks.hidePost).toHaveBeenCalledWith(POST_ID);
+    expect(mocks.unhidePost).not.toHaveBeenCalled();
+
+    const app2 = await render({ viewer: ADMIN, post: makePost({ hiddenByAdmin: true }) });
+    await clickThrough(app2, ['復原這則貼文']);
+    expect(mocks.unhidePost).toHaveBeenCalledWith(POST_ID);
+  });
+
+  it('管理員若同時是作者，兩組操作都在（§4.1：管理員繼承成員權限）', async () => {
+    const app = await render({ viewer: ADMIN, post: makePost({ authorId: 'm-9' }) });
+    expect(app.textContent).toContain('刪除這則貼文');
+    expect(app.textContent).toContain('下架這則貼文');
   });
 });
