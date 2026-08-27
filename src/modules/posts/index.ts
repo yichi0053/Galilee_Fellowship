@@ -267,9 +267,7 @@ async function listWeekAsMember(
 ): Promise<ReadonlyArray<Post>> {
   const { data, error } = await db
     .from('posts')
-    .select(
-      'id, type, thumb_path, image_path, body, rotation_deg, week_start_date, created_at, author_id, hidden_by_admin, room_members!inner(display_name)',
-    )
+    .select(MEMBER_SELECT)
     .eq('room_id', ROOM_ID)
     .eq('week_start_date', week)
     // posts_select policy 只管「是不是本房間的成員」，不濾軟刪除，故此處必須自己濾。
@@ -281,22 +279,64 @@ async function listWeekAsMember(
   return (data ?? [])
     // §9.5：管理員下架的貼文只有作者本人看得到佔位，其他成員完全看不到。
     .filter((row) => !row.hidden_by_admin || row.author_id === asMemberId)
-    .map((row) =>
-      toPost({
-        id: row.id,
-        type: row.type,
-        body: row.body,
-        imagePath: row.image_path,
-        thumbPath: row.thumb_path,
-        rotationDeg: row.rotation_deg,
-        week: row.week_start_date,
-        createdAt: row.created_at,
-        authorName: row.room_members.display_name,
-        authorId: row.author_id,
-        hiddenByAdmin: row.hidden_by_admin,
-        asMemberId,
-      }),
-    );
+    .map((row) => fromMemberRow(row, asMemberId));
+}
+
+/**
+ * 自己所有的貼文，不分週次，新的在前（§10.7 的「我的貼文」）。
+ *
+ * 含被管理員下架的那些：作者本人看得到佔位，也才有機會知道發生了什麼事（§9.5）。
+ * 不含已刪除的——那些在 posts 表裡還在，但對作者而言已經是刪掉了。
+ */
+export async function listMine(asMemberId: string): Promise<ReadonlyArray<Post>> {
+  const { data, error } = await db
+    .from('posts')
+    .select(MEMBER_SELECT)
+    .eq('room_id', ROOM_ID)
+    .eq('author_id', asMemberId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []).map((row) => fromMemberRow(row, asMemberId));
+}
+
+/**
+ * 成員視角的欄位。三個查詢（依週、單則、我的貼文）共用同一份，
+ * 少一處漏掉 room_members 的 join 就會少掉未遮蔽的姓名。
+ */
+const MEMBER_SELECT =
+  'id, type, thumb_path, image_path, body, rotation_deg, week_start_date, created_at, author_id, hidden_by_admin, room_members!inner(display_name)';
+
+type MemberRow = {
+  id: string;
+  type: PostKind;
+  body: string;
+  image_path: string;
+  thumb_path: string;
+  rotation_deg: number;
+  week_start_date: string;
+  created_at: string;
+  author_id: string;
+  hidden_by_admin: boolean;
+  room_members: { display_name: string };
+};
+
+function fromMemberRow(row: MemberRow, asMemberId: string): Post {
+  return toPost({
+    id: row.id,
+    type: row.type,
+    body: row.body,
+    imagePath: row.image_path,
+    thumbPath: row.thumb_path,
+    rotationDeg: row.rotation_deg,
+    week: row.week_start_date,
+    createdAt: row.created_at,
+    authorName: row.room_members.display_name,
+    authorId: row.author_id,
+    hiddenByAdmin: row.hidden_by_admin,
+    asMemberId,
+  });
 }
 
 /** bucket 為 public（migration 003），故取得的是可被 CDN 快取的固定網址，不需簽章 */
@@ -392,9 +432,7 @@ export async function getPost(id: PostId, asMemberId: string | null): Promise<Po
 
   const { data, error } = await db
     .from('posts')
-    .select(
-      'id, type, thumb_path, image_path, body, rotation_deg, week_start_date, created_at, author_id, hidden_by_admin, room_members!inner(display_name)',
-    )
+    .select(MEMBER_SELECT)
     .eq('id', id)
     .is('deleted_at', null)
     .maybeSingle();
@@ -404,20 +442,7 @@ export async function getPost(id: PostId, asMemberId: string | null): Promise<Po
   // §9.5：下架的貼文只有作者本人看得到佔位，其他成員視同不存在。
   if (data.hidden_by_admin && data.author_id !== asMemberId) return null;
 
-  return toPost({
-    id: data.id,
-    type: data.type,
-    body: data.body,
-    imagePath: data.image_path,
-    thumbPath: data.thumb_path,
-    rotationDeg: data.rotation_deg,
-    week: data.week_start_date,
-    createdAt: data.created_at,
-    authorName: data.room_members.display_name,
-    authorId: data.author_id,
-    hiddenByAdmin: data.hidden_by_admin,
-    asMemberId,
-  });
+  return fromMemberRow(data, asMemberId);
 }
 
 /** 編輯不影響配額（§9.5） */
