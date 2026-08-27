@@ -247,38 +247,66 @@ select id, name from rooms;
 
 ---
 
-## 7. 上線前：開正式專案並切換
+## 7. 上線檢查清單
 
-你選擇先開一個專案當開發用，所以上線前有一組切換步驟。
-**這些事沒做完網站就是壞的，而且多半是安靜地壞**，故逐條列出。
+**ADR-0018：不另開正式專案，你現在用的這一個就是正式環境。**
+原本「開第二個專案並切換」那十步已經不需要，改為以下清單。
 
-1. 開第二個 Supabase 專案，命名加上 `-prod`。免費方案允許 2 個 active project。
-2. 在新專案的 SQL Editor 依序執行 `supabase/migrations/` 的 001 至 004。
-   **不要執行 `seed.sql`** —— 它裡面的房間碼是 `DEV-ONLY-JOIN-CODE-0000`。
-   改為手動 insert 一列 `rooms`，房間碼自訂（至少 12 字元，§8.2）。
-3. `select id from rooms;` 取得**新的房間 uuid**。
-   它跟開發專案的不一樣，以下三處都要換：
-   - Cloudflare Pages 的環境變數 `VITE_ROOM_ID`
-   - Edge Function 的 secret：`npx supabase secrets set ROOM_ID=<新 uuid> --project-ref <prod-ref>`
-   - 本機 `.env`（若你還要接著開發）
-4. Cloudflare Pages 的 `VITE_SUPABASE_URL` 與 `VITE_SUPABASE_ANON_KEY` 換成正式專案的值。
-5. Google Cloud Console → Credentials → 你的 OAuth client，
-   **新增**正式專案的 redirect URI（保留開發那條）：
-   `https://<prod-ref>.supabase.co/auth/v1/callback`
-6. 正式專案的 **Authentication → Providers → Google** 也要貼一次 Client ID 與 secret。
-   這是最容易漏的一步：兩個專案各有各的 Auth 設定，不會自動同步。
-7. 正式專案的 **Authentication → URL Configuration** 填正式網址。
-8. 部署 Edge Function 到正式專案（**需要 CLI v2**，v1 會要求 Docker）：
-   `npx supabase functions deploy join-room --project-ref <prod-ref> --no-verify-jwt`
-   並設定該專案的 `ROOM_ID` secret（見第 3 步）。
-   `--no-verify-jwt` 的理由寫在 `supabase/config.toml`——把關在 function 內部，
-   關掉平台層的檢查是為了讓 CORS preflight 能通過。
-9. GitHub secrets 的 `SUPABASE_URL` / `SUPABASE_ANON_KEY` 換成正式專案，
-   否則 keepalive 會一直 ping 開發專案，而**正式專案在第 7 天安靜暫停**。
-10. 最後跑一次 `npm run verify:rls` 指向正式專案，確認全綠，
-    然後**把它產生的測試帳號清乾淨**（腳本會自己刪，但請到
-    Authentication → Users 目視確認一次）。
-    此後不要再對正式專案跑這個腳本。
+> 這代表你**沒有可以隨便弄壞的地方了**。此後 migration、手改資料、任何實驗，
+> 動到的都是 24 個人的真實照片。想要開發環境的話免費方案還允許第二個 project，
+> 隨時可以補開——但不要再拿這一個當實驗場。
+
+### 7.1 資料層轉正
+
+- [ ] **把自己升為管理員**
+      Dashboard → Table Editor → `room_members` → 你那一列的 `role` 改成 `admin`。
+      沒有這一步 `/admin` 會擋你自己。
+- [ ] **換掉房間碼**
+      種子資料的 `DEV-ONLY-JOIN-CODE-0000` 寫在 repo 裡，且已列入 `admin` 模組的禁止清單。
+      到 `/admin` → 房間設定改一個，至少 12 字元、字元變化 4 種以上。
+      **這是你要唸給 24 個人聽的字串**，好記比複雜重要（rate limit 已經擋住暴力猜測）。
+- [ ] **清掉測試貼文與檔案**（見 7.4）
+- [ ] **確認 `.env` 有 `SUPABASE_ENV=production`**
+      少了它，`npm run verify:rls` 會對正式資料庫建立與刪除真實使用者。
+      設好之後該腳本會拒絕執行並回傳退出碼 2。
+- [ ] **不要執行 `supabase/seed.sql`**。它會覆寫房間設定並塞回開發用房間碼。
+
+### 7.2 站台
+
+- [ ] **開 Cloudflare Pages 專案**（第 3 節），取得 `<專案名>.pages.dev`
+- [ ] **Supabase → Authentication → URL Configuration** 補上正式網址
+      （第 2 節第 8 步；**保留 localhost 那條**）
+- [ ] **Cloudflare Pages 環境變數**填 `VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY`、
+      `VITE_ROOM_ID`（Production 與 Preview 各一份）
+- [ ] **Google OAuth 的 redirect URI 不需要改** —— 專案沒有換，那條 callback 還是同一個
+
+### 7.3 維運
+
+- [ ] **GitHub secrets**：`SUPABASE_URL`、`SUPABASE_ANON_KEY`，然後手動觸發一次 keepalive
+- [ ] **注意 GitHub 的 60 天規則**：repo 連續 60 天沒有 commit，scheduled workflow 會被自動停用。
+      18 週是 126 天，一定會走到那一格，而失效是安靜的（只寄一封信）。
+      解法二選一：讓 keepalive 自己 commit 一個時間戳，或改以 UptimeRobot 為主力。
+- [ ] **`cleanup-posts` 沒有自動排程**。pg_cron 那條路已由 migration 009 移除
+      （Supabase 禁止以 SQL 刪 storage 物件）。目前唯一的觸發點是 `/admin` →
+      貼文管理 → 執行清理。ADR-0009 承諾 30 天硬刪除，所以**至少每月按一次**，
+      或另外接一個排程去打那支 function。
+
+### 7.4 清掉開發殘留
+
+測試貼文的資料列與 Storage 檔案要一起清，且**順序不可顛倒**——
+先刪資料列的話就再也查不到 `image_path`，檔案會變成永遠找不回來的孤兒。
+
+最省事的做法是在 `/post/:id` 逐則刪除（那只是軟刪除），然後到 `/admin` →
+貼文管理 → 執行清理。但清理只會移除**已滿 30 天**的，所以測試資料要立刻清乾淨的話，
+得從 Dashboard 手動處理：Storage → `post-images` 刪掉對應檔案，再到 Table Editor 刪 `posts` 的列。
+
+- [ ] 測試貼文（資料列 + Storage 檔案）
+- [ ] `join_attempts` 的測試紀錄（可留，只是稽核用）
+
+### 7.5 非程式（架構書 §17）
+
+- [ ] **背景牆圖片**：目前是零位元組的漸層代用，可以直接上線，換素材是加分項
+- [ ] **告知同意文字**：`/join` 上的四點聲明**須由團契負責人確認後才可上線**
 
 ---
 

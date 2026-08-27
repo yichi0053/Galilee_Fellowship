@@ -1,6 +1,6 @@
 # ADR-0017：開發機無 Docker，本機開發改用第二個 cloud project
 
-**Status**: Accepted
+**Status**: Superseded by ADR-0018
 
 ## Context
 
@@ -37,4 +37,6 @@ Migration 檔案結構仍照 CLI 慣例置於 `supabase/migrations/`，日後安
 真正需要 Docker 的是 `--local`，而 `npm run db:types` 原本錯用了它，已改為
 `scripts/gen-types.sh`。）
 
-**若日後安裝 Docker，本 ADR 應標記為 Superseded by ADR-0012。**
+**2026-08-27 起由 ADR-0018 取代**：不再開第二個專案，現有專案直接轉正。
+本 ADR 中「隨便摸、隨便重建」與「兩個 project 共用額度」等敘述已不適用；
+「無 Docker，故 db reset 與 pgTAP 不可用」的部分仍然成立。
