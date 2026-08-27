@@ -7,6 +7,7 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { JOIN_CODE_MIN_LENGTH } from '@config/constants';
 import { db, ROOM_ID } from '@db/client';
+import { publicImageUrl } from '@modules/posts';
 import type { PostId } from '@modules/posts';
 
 export type RoomSettings = {
@@ -196,6 +197,45 @@ export async function hidePost(id: PostId): Promise<void> {
 
 export async function unhidePost(id: PostId): Promise<void> {
   return setHidden(id, false);
+}
+
+/**
+ * 目前被下架、尚未刪除的貼文（§9.7）。
+ *
+ * 為什麼後台需要這一份清單：下架的入口在每則貼文自己的頁面，
+ * 但**下架之後那則貼文就從所有人的牆上消失了**——包含管理員自己的。
+ * 只有作者看得到佔位，管理員反而找不回自己下架過什麼。
+ * 沒有這份清單，「放回架上」實務上做不到。
+ */
+export type HiddenPost = {
+  readonly id: PostId;
+  readonly title: string;
+  readonly authorName: string;
+  readonly week: string;
+  readonly createdAt: Date;
+  readonly thumbUrl: string;
+};
+
+export async function listHidden(): Promise<ReadonlyArray<HiddenPost>> {
+  const { data, error } = await db
+    .from('posts')
+    .select('id, title, thumb_path, week_start_date, created_at, room_members!inner(display_name)')
+    .eq('room_id', ROOM_ID)
+    .eq('hidden_by_admin', true)
+    // 已刪除的不列：那些歸「等待清理」管，兩份清單重疊只會讓人不知道該按哪個。
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+
+  return (data ?? []).map((row) => ({
+    id: row.id as PostId,
+    title: row.title,
+    authorName: row.room_members.display_name,
+    week: row.week_start_date,
+    createdAt: new Date(row.created_at),
+    thumbUrl: publicImageUrl(row.thumb_path),
+  }));
 }
 
 /** 已軟刪除且未逾 30 天的貼文（§9.7） */

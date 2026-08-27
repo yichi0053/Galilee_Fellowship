@@ -406,9 +406,18 @@ function fromMemberRow(row: MemberRow, asMemberId: string): Post {
   });
 }
 
-/** bucket 為 public（migration 003），故取得的是可被 CDN 快取的固定網址，不需簽章 */
-function publicUrl(path: string): string {
+/**
+ * bucket 為 public（migration 003），故取得的是可被 CDN 快取的固定網址，不需簽章。
+ *
+ * 對外匯出是給 admin 用的（後台的下架清單要顯示縮圖）。讓它自己拼一次網址
+ * 會多出一份 bucket 名稱與路徑格式的知識，那正是 §12.4 規則 3 想避免的。
+ */
+export function publicImageUrl(path: string): string {
   return db.storage.from(POST_IMAGES_BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
+function publicUrl(path: string): string {
+  return publicImageUrl(path);
 }
 
 type PostRow = {

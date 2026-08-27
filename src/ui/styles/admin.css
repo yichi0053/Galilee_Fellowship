@@ -118,3 +118,39 @@
 
 .code-row { display: flex; gap: 0.4rem; }
 .code-row .paper-input { flex: 1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+/* ------------------------------------------------- 下架中的貼文 --- */
+/* §9.5：要決定放不放回架上，得先看得到那是什麼——所以這一列有縮圖。 */
+
+.row--hidden {
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.row__thumb {
+  flex: none;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 0.3rem;
+  object-fit: cover;
+  background: #e8e2d6;
+  /* 與牆上的標示一致：下架的東西一律灰階，一眼看得出不是正常狀態。 */
+  filter: grayscale(0.85) brightness(0.85);
+}
+
+.row__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.row__stack .row__name { overflow-wrap: anywhere; }
+
+/* 「看完整貼文」是 <a>，與旁邊的 <button> 要長得一樣 */
+a.mini {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}

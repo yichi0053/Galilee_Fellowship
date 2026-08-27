@@ -15,6 +15,7 @@ import '@ui/styles/admin.css';
 import { JOIN_CODE_MIN_LENGTH, SOFT_DELETE_RETENTION_DAYS } from '@config/constants';
 import {
   getRoomSettings,
+  listHidden,
   listJoinAttempts,
   listMembers,
   listSoftDeleted,
@@ -22,6 +23,7 @@ import {
   reinstateMember,
   runCleanup,
   suspendMember,
+  unhidePost,
   updateRoomSettings,
 } from '@modules/admin';
 import type { MemberSummary, RoomSettings } from '@modules/admin';
@@ -345,9 +347,89 @@ async function membersPanel(panel: HTMLElement): Promise<void> {
 
 // --------------------------------------------------- 分頁 4：貼文管理 ---
 
+/**
+ * 下架中的貼文（§9.5、§9.7）。
+ *
+ * 下架的入口在每則貼文自己的頁面，但下架之後那則就從所有人的牆上消失了——
+ * 包含管理員自己的。只有作者看得到佔位。沒有這一區，
+ * 「我上週下架了什麼」與「把它放回去」實務上都做不到。
+ */
+async function hiddenSection(panel: HTMLElement): Promise<void> {
+  const hidden = await listHidden();
+
+  panel.append(el('h2', 'paper-field__label', `下架中（${hidden.length}）`));
+  panel.append(
+    el(
+      'p',
+      'admin-panel__lead',
+      '下架的貼文只有作者看得到佔位，其他成員與訪客一律看不到。' +
+        '資料與照片都還在，可發文次數也不受影響——放回架上就恢復原狀。',
+    ),
+  );
+
+  if (hidden.length === 0) {
+    panel.append(el('p', 'empty-note', '目前沒有下架中的貼文。'));
+    return;
+  }
+
+  const rows = el('div', 'rows');
+  for (const h of hidden) {
+    const row = el('div', 'row row--hidden');
+
+    // 縮圖是這一區最重要的資訊：要決定放不放回去，得先看得到那是什麼。
+    const thumb = el('img', 'row__thumb');
+    thumb.src = h.thumbUrl;
+    thumb.alt = h.title;
+    thumb.loading = 'lazy';
+    thumb.decoding = 'async';
+    row.append(thumb);
+
+    const meta = el('div', 'row__stack');
+    meta.append(el('span', 'row__name', h.title));
+    meta.append(
+      el(
+        'span',
+        'row__meta',
+        `${h.authorName} · ${dateFormat.format(h.createdAt)} · ${h.week.replace(/-/g, '/')} 那一週`,
+      ),
+    );
+    row.append(meta);
+
+    const actions = el('div', 'row__actions');
+
+    const view = el('a', 'mini');
+    view.href = `/post/${h.id}`;
+    view.textContent = '看完整貼文';
+    actions.append(view);
+
+    const restore = el('button', 'mini', '放回架上');
+    restore.type = 'button';
+    restore.addEventListener('click', () => {
+      restore.disabled = true;
+      restore.textContent = '處理中…';
+      void unhidePost(h.id).then(
+        () => void redraw('posts'),
+        (error: unknown) => {
+          restore.disabled = false;
+          restore.textContent = '放回架上';
+          notify(panel, 'error', error instanceof Error ? error.message : '操作失敗。');
+        },
+      );
+    });
+    actions.append(restore);
+
+    row.append(actions);
+    rows.append(row);
+  }
+  panel.append(rows);
+}
+
 async function postsPanel(panel: HTMLElement): Promise<void> {
+  await hiddenSection(panel);
+
   const deleted = await listSoftDeleted();
 
+  panel.append(el('h2', 'paper-field__label', '等待清理'));
   panel.append(
     el(
       'p',

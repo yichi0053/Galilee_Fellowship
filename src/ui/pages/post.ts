@@ -152,8 +152,11 @@ function ownerActions(post: Post): HTMLElement {
 
 /**
  * 管理員的下架／復原（§9.5）。與作者的刪除是兩件事：
- * 下架設 hidden_by_admin，貼文與照片都還在，作者仍看得到佔位，配額也不變動。
- * 放在這一頁而不是後台的清單裡——要下架一則貼文，總得先看見它。
+ * 下架設 hidden_by_admin，貼文與照片都還在，作者仍看得到佔位，可發文次數也不變動。
+ *
+ * **下架**的入口在這裡而不是後台：要下架一則貼文，總得先看見它。
+ * **復原**兩邊都有——下架之後這則就從管理員自己的牆上消失了，
+ * 找不回來就按不到這顆按鈕，所以後台的「貼文管理」另有一份下架中的清單。
  */
 function adminActions(post: Post): HTMLElement {
   const box = el('section', 'owner');

@@ -6,7 +6,7 @@
  * 資料庫不會察覺，牆上只會安靜地多出或少掉一個人的貼文。
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { MemberSummary, RoomSettings } from '@modules/admin';
+import type { HiddenPost, MemberSummary, RoomSettings } from '@modules/admin';
 import type { Viewer } from '@modules/membership';
 
 const mocks = vi.hoisted(() => ({
@@ -19,6 +19,8 @@ const mocks = vi.hoisted(() => ({
   markMemberLeft: vi.fn(),
   listJoinAttempts: vi.fn(),
   listSoftDeleted: vi.fn(),
+  listHidden: vi.fn(),
+  unhidePost: vi.fn(),
   runCleanup: vi.fn(),
   listThemesFrom: vi.fn(),
   scheduleThemes: vi.fn(),
@@ -51,7 +53,9 @@ function member(over: Partial<MemberSummary> = {}): MemberSummary {
   };
 }
 
-async function render(options: { viewer?: Viewer; members?: MemberSummary[] } = {}) {
+async function render(
+  options: { viewer?: Viewer; members?: MemberSummary[]; hidden?: HiddenPost[] } = {},
+) {
   document.body.innerHTML = '<main id="app"></main>';
   mocks.getViewer.mockResolvedValue(options.viewer ?? ADMIN);
   mocks.getRoomSettings.mockResolvedValue(ROOM);
@@ -61,6 +65,8 @@ async function render(options: { viewer?: Viewer; members?: MemberSummary[] } = 
   );
   mocks.listJoinAttempts.mockResolvedValue([]);
   mocks.listSoftDeleted.mockResolvedValue([]);
+  mocks.listHidden.mockResolvedValue(options.hidden ?? []);
+  mocks.unhidePost.mockResolvedValue(undefined);
   mocks.suspendMember.mockResolvedValue(undefined);
   mocks.reinstateMember.mockResolvedValue(undefined);
   mocks.markMemberLeft.mockResolvedValue(undefined);
@@ -177,7 +183,9 @@ describe('/admin 貼文管理（ADR-0009）', () => {
   it('沒有待清理的貼文時說清楚，而不是一片空白', async () => {
     const app = await render();
     await openTab(app, '貼文管理');
-    expect(app.querySelector('.empty-note')?.textContent).toContain('沒有等待清理');
+    // 這一頁現在有兩個 .empty-note（下架中、等待清理），
+    // 抓第一個會抓到上面那一區，故改為檢查整頁文字。
+    expect(app.textContent).toContain('沒有等待清理');
   });
 
   it('執行清理呼叫 runCleanup，並回報實際刪了幾筆', async () => {
@@ -225,5 +233,57 @@ describe('/admin 加入紀錄（§8.3）', () => {
     expect(app.textContent).toContain('最近的加入嘗試');
     expect(app.textContent).toContain('（尚未加入的人）');
     expect(app.textContent).toContain('失敗');
+  });
+});
+
+describe('/admin 下架中的貼文（§9.5）', () => {
+  const HIDDEN: HiddenPost[] = [
+    {
+      id: 'p-9' as HiddenPost['id'],
+      title: '好吃碗粿',
+      authorName: '陳小明',
+      week: '2026-08-24',
+      createdAt: new Date('2026-08-25T04:00:00Z'),
+      thumbUrl: 'https://example.test/t9.jpg',
+    },
+  ];
+
+  it('沒有下架中的貼文時說清楚，而不是一片空白', async () => {
+    const app = await render();
+    await openTab(app, '貼文管理');
+    expect(app.textContent).toContain('目前沒有下架中的貼文');
+  });
+
+  it('列出下架中的貼文，含縮圖與作者——要決定放不放回去得先看得到那是什麼', async () => {
+    const app = await render({ hidden: HIDDEN });
+    await openTab(app, '貼文管理');
+    const row = app.querySelector('.row--hidden');
+    expect(row).not.toBeNull();
+    expect(row?.querySelector<HTMLImageElement>('.row__thumb')?.src).toBe(
+      'https://example.test/t9.jpg',
+    );
+    expect(row?.querySelector('.row__name')?.textContent).toBe('好吃碗粿');
+    expect(row?.querySelector('.row__meta')?.textContent).toContain('陳小明');
+  });
+
+  it('每一列都有一個連往完整貼文的入口', async () => {
+    const app = await render({ hidden: HIDDEN });
+    await openTab(app, '貼文管理');
+    expect(
+      app.querySelector<HTMLAnchorElement>('.row--hidden a[href="/post/p-9"]'),
+    ).not.toBeNull();
+  });
+
+  it('「放回架上」呼叫 unhidePost', async () => {
+    const app = await render({ hidden: HIDDEN });
+    await openTab(app, '貼文管理');
+    await clickByText(app, '放回架上');
+    expect(mocks.unhidePost).toHaveBeenCalledWith('p-9');
+  });
+
+  it('標頭顯示目前有幾則，不用自己數', async () => {
+    const app = await render({ hidden: HIDDEN });
+    await openTab(app, '貼文管理');
+    expect(app.textContent).toContain('下架中（1）');
   });
 });
