@@ -225,3 +225,26 @@ describe('/post/:id 的標題與內文（ADR-0019）', () => {
     expect(app.querySelector('.post-body')?.textContent).toBe('跟小組一起吃的。');
   });
 });
+
+describe('照片放大檢視（§10.5）', () => {
+  it('照片是按鈕，點下去打開放大檢視', async () => {
+    const app = await render();
+    const photo = app.querySelector<HTMLButtonElement>('button.post-photo');
+    expect(photo).not.toBeNull();
+    expect(photo?.getAttribute('aria-label')).toBe('放大檢視照片');
+
+    photo!.click();
+    const dialog = document.querySelector<HTMLDialogElement>('dialog.zoom');
+    expect(dialog).not.toBeNull();
+    expect(dialog?.querySelector<HTMLImageElement>('.zoom__img')?.src).toBe(
+      'https://example.test/i.jpg',
+    );
+  });
+
+  it('放大檢視用的是主圖網址，與詳細頁同一張——不會多下載', async () => {
+    const app = await render();
+    const shown = app.querySelector<HTMLImageElement>('.post-photo img')?.src;
+    app.querySelector<HTMLButtonElement>('button.post-photo')!.click();
+    expect(document.querySelector<HTMLImageElement>('.zoom__img')?.src).toBe(shown);
+  });
+})

@@ -33,7 +33,6 @@
 .member-grid { max-width: 46rem; margin: 0 auto; }
 
 /* 下架的貼文只有作者看得到，必須一眼看出它不是正常狀態 */
-.polaroid[data-hidden="true"] { outline: 2px solid var(--pin); outline-offset: 3px; }
 
 .member-empty {
   max-width: 46rem;

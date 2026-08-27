@@ -58,11 +58,19 @@ function makePost(index: number, week: WeekStart, deletable: boolean): Post {
   };
 }
 
-async function renderWall(viewer: Viewer = MEMBER): Promise<HTMLElement> {
+async function renderWall(
+  viewer: Viewer = MEMBER,
+  /** 覆寫該週的貼文。不給就用三則預設的 */
+  postsFor?: (week: WeekStart) => Post[],
+): Promise<HTMLElement> {
   document.body.innerHTML = '<main id="app"></main>';
   mocks.getViewer.mockResolvedValue(viewer);
   mocks.listWeek.mockImplementation((week: WeekStart) =>
-    Promise.resolve([0, 1, 2].map((i) => makePost(i, week, viewer.kind === 'member'))),
+    Promise.resolve(
+      postsFor
+        ? postsFor(week)
+        : [0, 1, 2].map((i) => makePost(i, week, viewer.kind === 'member')),
+    ),
   );
   // 本週與三週前有貼文，中間兩週是空的——用來驗選擇器不跳號
   const now = weekStartOf();
@@ -357,5 +365,24 @@ describe('卡片直接連往貼文頁，沒有中間的放大檢視層', () => {
     const app = await renderWall();
     expect(document.querySelector('.lightbox')).toBeNull();
     expect(app.querySelector('dialog')).toBeNull();
+  });
+});
+
+describe('下架的貼文在牆上必須看得出來（§9.5）', () => {
+  it('作者自己的下架貼文標記出來，不能跟正常貼文長得一樣', async () => {
+    // 走到牆頁的下架貼文一定是作者自己的——別人的已在 posts 模組濾掉。
+    // 沒有這個標記的話，管理員下架完回到牆上會以為沒有生效。
+    const app = await renderWall(MEMBER, (week) => [
+      { ...makePost(0, week, true), hiddenByAdmin: true },
+      makePost(1, week, true),
+    ]);
+    const marked = app.querySelectorAll('.polaroid[data-hidden="true"]');
+    expect(marked.length).toBe(1);
+    expect((marked[0] as HTMLElement).title).toContain('下架');
+  });
+
+  it('正常貼文不會被誤標', async () => {
+    const app = await renderWall();
+    expect(app.querySelector('.polaroid[data-hidden="true"]')).toBeNull();
   });
 });

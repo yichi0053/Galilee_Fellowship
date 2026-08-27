@@ -393,6 +393,41 @@ body {
   .wall-nav, .theme-banner { transition: none; }
 }
 
+/*
+ * §9.5：被管理員下架的貼文。
+ *
+ * **只有作者本人看得到這張卡片**（濾在 posts 模組，不是這裡），所以它一定要
+ * 看起來就不是正常狀態——否則作者會以為下架沒生效，管理員也會以為自己按錯了。
+ * 原本這條只寫在 member.css，牆頁載不到，於是牆上的下架貼文與正常貼文長得一樣。
+ *
+ * 卡片仍可點：作者需要進到 /post/:id 才讀得到「為什麼被下架」的說明。
+ */
+.polaroid[data-hidden="true"] {
+  outline: 2px solid var(--pin);
+  outline-offset: 3px;
+}
+
+.polaroid[data-hidden="true"] .polaroid__img { filter: grayscale(0.85) brightness(0.82); }
+
+.polaroid[data-hidden="true"]::after {
+  content: "已下架";
+  position: absolute;
+  top: 0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--pin);
+  color: #fffdf7;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+/* ::after 是絕對定位的，需要一個定位祖先。卡片本身沒有 position——
+   補上 relative，且必須在旋轉的 transform 之後仍然有效（transform 不影響定位脈絡的建立）。 */
+.polaroid { position: relative; }
+
 /* ------------------------------------------------------------------ FAB --- */
 /* §10.2 / ADR-0011：發文為最高頻動作，放頂部會犧牲拇指可觸及性。 */
 

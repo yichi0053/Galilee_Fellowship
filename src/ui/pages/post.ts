@@ -15,6 +15,7 @@ import '@ui/styles/post-detail.css';
 
 import { hidePost, unhidePost } from '@modules/admin';
 import { getViewer } from '@modules/membership';
+import { createPhotoZoom } from '@ui/components/photo-zoom';
 import type { Viewer } from '@modules/membership';
 import { deletePost, getPost } from '@modules/posts';
 import type { Post, PostId } from '@modules/posts';
@@ -210,12 +211,22 @@ function postView(post: Post, viewer: Viewer): HTMLElement {
 
   box.append(el('h1', 'post-title', post.title));
 
-  const photo = el('div', 'post-photo');
+  // 照片是按鈕而不是 div：點下去要放大，那是一個動作而非導覽，
+  // 而且用 <button> 才有鍵盤焦點與 Enter／空白鍵。
+  const photo = el('button', 'post-photo');
+  photo.type = 'button';
+  photo.setAttribute('aria-label', '放大檢視照片');
   const img = el('img');
   img.src = post.imageUrl;
   img.alt = post.title;
   photo.append(img);
   box.append(photo);
+
+  // 放大用的是同一個網址，瀏覽器已經載過，不會多下載任何東西（§9.4）。
+  const zoom = createPhotoZoom();
+  document.body.append(zoom.element);
+  photo.addEventListener('click', () => zoom.open(post.imageUrl, post.title));
+  window.addEventListener('pagehide', () => zoom.close());
 
   // ADR-0019：內文選填。沒有內文時整段不渲染——
   // 留一個空的 <p> 會在照片與作者資訊之間開一道莫名其妙的縫。

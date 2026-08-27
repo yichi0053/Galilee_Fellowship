@@ -97,7 +97,15 @@ function renderWeekSection(
   for (const post of posts) {
     // 卡片本身就是連往 /post/:id 的連結（polaroid.ts），這裡不需要點擊處理。
     // 訪客看不到可刪除倒數：那是給作者本人的資訊。
-    grid.append(polaroidCard(post, { deleteCountdown: mode === 'member' }));
+    const card = polaroidCard(post, { deleteCountdown: mode === 'member' });
+    // §9.5：走到這裡的下架貼文一定是作者自己的（其他人的已在 posts 模組濾掉），
+    // 必須一眼看出它不是正常狀態——否則作者會以為下架沒有生效。
+    // 這段與 member.ts 是同一組規則的兩份實作，改動時兩邊都要改。
+    if (post.hiddenByAdmin) {
+      card.dataset['hidden'] = 'true';
+      card.title = '這則已被管理員下架，只有你看得到。';
+    }
+    grid.append(card);
   }
   section.append(grid);
   return section;
