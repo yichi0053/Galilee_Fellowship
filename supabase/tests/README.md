@@ -23,7 +23,10 @@ Superseded by ADR-0012。
 
 - 指向 **dev 專案**。腳本會建立五個測試帳號與三則貼文，結束時刪除。
 - `.env` 需有 `SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`、`SUPABASE_ANON_KEY`。
-- migration 001 至 004 與 `seed.sql` 已套用（腳本依賴 seed 建立的房間 id）。
+- 全部 migration 已套用，且房間列已建立（腳本依賴那個房間 id）。
+  建立房間的 SQL 見 [BUILD.md 第 8.4 節](../../docs/BUILD.md)——
+  原本的 `supabase/seed.sql` 已於 v1.0 前移除（ADR-0018 之後它不可再執行，
+  留著一個不可執行的檔案只會誤導）。
 
 ## 這份清單的份量
 

@@ -250,92 +250,76 @@ select id, name from rooms;
 
 ## 7. 上線檢查清單
 
-**ADR-0018：不另開正式專案，你現在用的這一個就是正式環境。**
-原本「開第二個專案並切換」那十步已經不需要，改為以下清單。
+**全部項目已於 2026-08-28 完成，v1.0 已上線。** 本節保留為紀錄，
+供日後重建環境時對照。逐步流程見 [BUILD.md](BUILD.md)。
 
-> 這代表你**沒有可以隨便弄壞的地方了**。此後 migration、手改資料、任何實驗，
-> 動到的都是 24 個人的真實照片。想要開發環境的話免費方案還允許第二個 project，
-> 隨時可以補開——但不要再拿這一個當實驗場。
+**ADR-0018：本專案不另開正式專案，現用的這一個就是正式環境。**
+此後 migration、手改資料、任何實驗，動到的都是 24 個人的真實照片。
+免費方案還允許第二個 project，隨時可以補開——但不要再拿這一個當實驗場。
 
 ### 7.1 資料層轉正
 
-- [x] **把自己升為管理員**（2026-08-27 完成）
-- [x] **換掉房間碼**（2026-08-27 完成：18 字元、8 種相異字元，非開發用的那組）
-- [x] **清掉測試貼文與檔案**（2026-08-27 完成）
-- [x] **`.env` 已設 `SUPABASE_ENV=production`**
+| 項目 | 狀態 | 做法 |
+|---|---|---|
+| 把自己升為管理員 | ✅ 08-27 | Table Editor → `room_members` → 你那一列的 `role` 改成 `admin`。沒有這一步 `/admin` 會擋你自己 |
+| 換掉房間碼 | ✅ 08-27 | `/admin` → 房間設定。至少 12 字元、4 種以上字元變化。**這是要唸給 24 個人聽的字串**，好記比複雜重要（rate limit 已擋住暴力猜測）|
+| 清掉測試資料 | ✅ 08-27 | 見 7.4 |
+| `.env` 設 `SUPABASE_ENV=production` | ✅ | 少了它，`verify:rls` 會對正式資料庫建立與刪除真實使用者 |
 
-以下為原始說明，供日後查核：
-
-- [ ] **把自己升為管理員**
-      Dashboard → Table Editor → `room_members` → 你那一列的 `role` 改成 `admin`。
-      沒有這一步 `/admin` 會擋你自己。
-- [ ] **換掉房間碼**
-      種子資料的 `DEV-ONLY-JOIN-CODE-0000` 寫在 repo 裡，且已列入 `admin` 模組的禁止清單。
-      到 `/admin` → 房間設定改一個，至少 12 字元、字元變化 4 種以上。
-      **這是你要唸給 24 個人聽的字串**，好記比複雜重要（rate limit 已經擋住暴力猜測）。
-- [ ] **清掉測試貼文與檔案**（見 7.4）
-- [ ] **確認 `.env` 有 `SUPABASE_ENV=production`**
-      少了它，`npm run verify:rls` 會對正式資料庫建立與刪除真實使用者。
-      設好之後該腳本會拒絕執行並回傳退出碼 2。
-
-> **這代表 RLS 與權限的迴歸驗證目前跑不起來。** `verify:rls` 共 50 餘項，
+> **代價：RLS 與權限的迴歸驗證目前跑不起來。** `verify:rls` 共 50 餘項，
 > 其中一整組是「一般成員不得做管理員的事」——那些檢查需要一個非管理員的
 > 測試帳號，而建立測試帳號正是護欄要擋的行為。
 >
 > 2026-08-27 發現的三個欄位層級權限漏洞（成員可自行改
 > `counts_toward_quota`、`hidden_by_admin`、`deleted_at`）就是靠這類檢查抓到的，
-> 當時是另寫一次性探針。**日後補開一個開發專案的主要理由就是這件事**：
-> 免費方案允許 2 個 active project，開了之後把 `.env` 的 `SUPABASE_ENV` 拿掉、
+> 當時是另寫一次性探針（做法見 [BUILD.md 第 15 節](BUILD.md)）。
+> **日後補開開發專案的主要理由就是這件事**：把 `.env` 的 `SUPABASE_ENV` 拿掉、
 > 指向那個專案即可重新跑起來。
-- [ ] **不要執行 `supabase/seed.sql`**。它會覆寫房間設定並塞回開發用房間碼。
 
 ### 7.2 站台
 
-- [ ] **開 Cloudflare Pages 專案**（第 3 節），取得 `<專案名>.pages.dev`
-- [ ] **Supabase → Authentication → URL Configuration** 補上正式網址
-      （第 2 節第 8 步；**保留 localhost 那條**）
-- [ ] **Cloudflare Pages 環境變數**填 `VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY`、
-      `VITE_ROOM_ID`（Production 與 Preview 各一份）
-- [ ] **Google OAuth 的 redirect URI 不需要改** —— 專案沒有換，那條 callback 還是同一個
+| 項目 | 狀態 |
+|---|---|
+| Cloudflare Pages 專案 | ✅ `galilee-fellowship.pages.dev` |
+| Supabase 的 Site URL 與三條 Redirect URLs | ✅ |
+| Pages 環境變數（Production 與 Preview 各一份） | ✅ |
+| Google OAuth 的 redirect URI | 不需變更——專案沒換，callback 位址相同 |
 
 ### 7.3 維運
 
-- [ ] **把 repo 推上 GitHub**。兩支排程 workflow 都得在 GitHub 上才會跑。
-- [ ] **GitHub repo secrets** 三個：
+| 項目 | 狀態 |
+|---|---|
+| repo 推上 GitHub | ✅ 公開儲存庫，Actions 用量無上限 |
+| GitHub secrets 三項 | ✅ `SUPABASE_URL`、`SUPABASE_ANON_KEY`、`CLEANUP_CRON_SECRET` |
+| 兩支 workflow 手動觸發綠燈 | ✅ 08-27 |
+| UptimeRobot 備援 | 未設，建議補（`OPERATIONS.md` 第 3 節）|
 
-      | Secret | 值 |
-      |---|---|
-      | `SUPABASE_URL` | 同 `.env` 的 `VITE_SUPABASE_URL` |
-      | `SUPABASE_ANON_KEY` | 同 `.env` 的 `VITE_SUPABASE_ANON_KEY` |
-      | `CLEANUP_CRON_SECRET` | 同 `.env` 的同名變數（已一併設進 Supabase 的 function secret）|
+`CLEANUP_CRON_SECRET` 刻意不是 service role key：那把鑰匙繞過所有 RLS，
+放進 GitHub 等於交出整個資料庫的寫入權。這個 secret 只能觸發清理，
+而清理是冪等的、只刪滿 30 天的東西。
 
-      `CLEANUP_CRON_SECRET` 刻意不是 service role key：那把鑰匙繞過所有 RLS，
-      放進 GitHub 等於交出整個資料庫的寫入權。這個 secret 只能觸發清理，
-      而清理是冪等的、只刪滿 30 天的東西。
-
-- [ ] **兩支 workflow 各手動觸發一次**（Actions 分頁 → Run workflow），確認綠燈：
-      `Keepalive`（每兩天）與 `Cleanup deleted posts`（每月 1 日）。
-- [ ] **60 天規則已由 keepalive 自行處理**：GitHub 會停用 repo 連續 60 天無 commit 的
-      scheduled workflow，而學期是 126 天。workflow 會在距上次 commit 滿 50 天時
-      自己 commit 一個時間戳。若你把 repo 設為需要 PR 才能推 main，這一步會失敗——
-      那種情況改設 UptimeRobot 當主力（`OPERATIONS.md` 第 3 節）。
+**60 天規則**已由 keepalive 自行處理：GitHub 會停用 repo 連續 60 天無 commit 的
+scheduled workflow，而學期是 126 天。workflow 會在距上次 commit 滿 50 天時
+自己 commit 一個時間戳。若把 repo 設為需要 PR 才能推 main，這一步會失敗——
+那種情況改設 UptimeRobot 當主力。
 
 ### 7.4 清掉開發殘留
 
 測試貼文的資料列與 Storage 檔案要一起清，且**順序不可顛倒**——
 先刪資料列的話就再也查不到 `image_path`，檔案會變成永遠找不回來的孤兒。
 
-最省事的做法是在 `/post/:id` 逐則刪除（那只是軟刪除），然後到 `/admin` →
-貼文管理 → 執行清理。但清理只會移除**已滿 30 天**的，所以測試資料要立刻清乾淨的話，
-得從 Dashboard 手動處理：Storage → `post-images` 刪掉對應檔案，再到 Table Editor 刪 `posts` 的列。
+`/admin` 的「執行清理」只會移除**已滿 30 天**的軟刪除貼文，所以要立刻清乾淨
+必須從 Dashboard 手動處理：Storage → `post-images` 刪檔案，
+再到 Table Editor 刪 `posts` 的列。
 
-- [ ] 測試貼文（資料列 + Storage 檔案）
-- [ ] `join_attempts` 的測試紀錄（可留，只是稽核用）
+`join_attempts` 的測試紀錄可以留著，那只是稽核用。
 
 ### 7.5 非程式（架構書 §17）
 
-- [ ] **背景牆圖片**：目前是零位元組的漸層代用，可以直接上線，換素材是加分項
-- [x] **告知同意文字**：已由團契負責人確認（2026-08-27），維持原文
+| 項目 | 狀態 |
+|---|---|
+| 告知同意文字 | ✅ 團契負責人確認（08-27），08-28 因刪除機制改動而修訂第 3 點（ADR-0021）|
+| 背景牆圖片 | 未換。目前是零位元組的漸層代用，可以直接上線，換素材是加分項 |
 
 ---
 

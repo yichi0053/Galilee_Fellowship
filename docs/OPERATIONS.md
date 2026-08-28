@@ -73,13 +73,23 @@ update rooms set join_open = false where id = '<room_id>';
 
 ## 4. 手動觸發 30 天清理
 
-若 pg_cron 不可用（ADR-0009 的已知風險），清理需手動或由管理員登入後台時觸發：
+**不要用 SQL。** `cleanup_deleted_posts()` 這支函式已由 migration 009 移除
+（`drop function if exists`），現在執行只會得到「function does not exist」。
 
-```sql
-select cleanup_deleted_posts();
-```
+它被移除的原因是它從來沒有成功執行過：Supabase 禁止以 SQL 直接刪
+`storage.objects`，所以那支函式刪得掉資料列、刪不掉照片，而照片才是重點
+（ADR-0009）。唯一可行的路徑是以 service role 呼叫 Storage API，
+那必須在 Edge Function 裡做。
 
-該函式為冪等，可重複執行。執行後請確認 Storage 中無孤兒檔案：
+現行的兩條路徑，兩者都是呼叫同一支 `cleanup-posts` Edge Function：
+
+1. **後台**：`/admin` → 貼文管理 → 「執行清理」。日常用這個。
+2. **GitHub Actions**：Actions → `Cleanup deleted posts` → Run workflow。
+   排程每月 1 日自動跑一次；手動觸發用於確認 secrets 仍然有效。
+
+兩者皆為冪等，只移除已滿 30 天的軟刪除貼文，可重複執行。
+
+執行後請確認 Storage 中無孤兒檔案：
 
 ```sql
 -- 列出 Storage 中沒有對應 posts 資料列的物件

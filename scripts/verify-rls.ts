@@ -199,7 +199,7 @@ async function createIdentity(
   return { userId, memberId, token: session.access_token };
 }
 
-/** createdAt 可回填過去的時刻，用來測回補期已過的分支而不必真的等 10 分鐘 */
+/** createdAt 可回填過去的時刻，用來測逾期的分支而不必真的等 20 分鐘（ADR-0021）*/
 async function createPost(memberId: string, body: string, createdAt?: Date): Promise<string> {
   const r = await admin('/rest/v1/posts', {
     method: 'POST',
@@ -349,7 +349,7 @@ async function main(): Promise<void> {
     check('成員 A 無法以 RPC 刪除成員 B 的貼文（007 的 definer 函式自己把關）',
       rStealDelete.status >= 400, `status=${rStealDelete.status}`);
 
-    const mine = await createPost(memberA.memberId, '成員 A 的貼文，用來測試回補期內刪除。');
+    const mine = await createPost(memberA.memberId, '成員 A 的貼文，用來測試期限內刪除。');
     const rSelfDelete = await rest(asA, 'rpc/soft_delete_post', {
       method: 'POST',
       body: JSON.stringify({ p_id: mine }),

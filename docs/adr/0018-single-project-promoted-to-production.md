@@ -30,7 +30,8 @@ ADR-0017 決定「開發初期只開一個 project，正式 project 在上線前
   與貼文。`.env` 已設 `SUPABASE_ENV=production`，腳本會拒絕執行並回傳退出碼 2。
   日後要重跑 RLS 驗證，必須另開一個開發專案（免費方案允許 2 個 active project，
   這條路隨時可以補開，只是不能再拿正式專案當實驗場）。
-- **`supabase/seed.sql` 不可再執行**：其中的房間碼是 `DEV-ONLY-JOIN-CODE-0000`，
+- **`supabase/seed.sql` 不可再執行**（該檔已於 v1.0 前移除，
+  建立房間的 SQL 移至 [BUILD.md 第 8.4 節](../BUILD.md)）：其中的房間碼是 `DEV-ONLY-JOIN-CODE-0000`，
   且會覆寫既有的房間設定。
 - **migration 只能往前**：沒有第二個地方可以先試。新的 migration 上線前
   只能靠人眼審閱，`supabase db reset` 這條路本來就因為沒有 Docker 而不存在（ADR-0017）。
