@@ -13,8 +13,6 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:types": "bash scripts/gen-types.sh",
-    "db:reset": "supabase db reset",
-    "db:push": "supabase db push",
     "verify:rls": "tsx scripts/verify-rls.ts"
   },
   "dependencies": {

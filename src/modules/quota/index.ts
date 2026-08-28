@@ -14,12 +14,7 @@ import { POST_KINDS, remainingFrom } from './rules';
 import type { PostKind, Remaining, UsedCounts } from './rules';
 
 export type { PostKind } from './rules';
-export {
-  canPost,
-  isWithinDeleteWindow,
-  deletableUntil,
-  deleteMsRemaining,
-} from './rules';
+export { canPost, deletableUntil } from './rules';
 
 export type QuotaState = {
   readonly week: WeekStart;

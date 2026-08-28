@@ -416,10 +416,6 @@ export function publicImageUrl(path: string): string {
   return db.storage.from(POST_IMAGES_BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
-function publicUrl(path: string): string {
-  return publicImageUrl(path);
-}
-
 type PostRow = {
   id: string;
   type: PostKind;
@@ -448,8 +444,8 @@ function toPost(row: PostRow): Post {
     kind: row.type,
     title: row.title,
     body: row.body,
-    imageUrl: publicUrl(row.imagePath),
-    thumbUrl: publicUrl(row.thumbPath),
+    imageUrl: publicImageUrl(row.imagePath),
+    thumbUrl: publicImageUrl(row.thumbPath),
     rotationDeg: row.rotationDeg,
     week: parseWeekStart(row.week),
     authorName: row.authorName,

@@ -85,13 +85,14 @@ export async function getViewer(): Promise<Viewer> {
   }
 }
 
-/** 便利判斷，避免 UI 到處寫 kind === 'member' || kind === 'admin' */
+/**
+ * 便利判斷，避免 UI 到處寫 kind === 'member' || kind === 'admin'。
+ *
+ * 刻意沒有對應的 isAdmin：管理員的分支只有三處，且都需要同時取出 memberId，
+ * 寫成 viewer.kind === 'admin' 才能讓 TypeScript 收窄型別。
+ */
 export function canPost(viewer: Viewer): boolean {
   return viewer.kind === 'member' || viewer.kind === 'admin';
-}
-
-export function isAdmin(viewer: Viewer): boolean {
-  return viewer.kind === 'admin';
 }
 
 /**

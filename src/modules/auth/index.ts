@@ -71,13 +71,3 @@ export async function signOut(): Promise<void> {
   const { error } = await db.auth.signOut();
   if (error) throw error;
 }
-
-/** session 變動時通知（token refresh、其他分頁登出）。回傳取消訂閱函式 */
-export function onAuthChange(handler: (user: AuthUser | null) => void): () => void {
-  const { data } = db.auth.onAuthStateChange((_event, session) => {
-    // 回呼裡不可再呼叫 supabase 的非同步 API：它與內部的 session 鎖會互等而卡死。
-    // 故只從 session 取值，不在這裡補打 getUser()。
-    handler(session ? toAuthUser(session.user) : null);
-  });
-  return () => data.subscription.unsubscribe();
-}

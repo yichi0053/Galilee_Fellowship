@@ -268,6 +268,11 @@ cp .env.example .env
 因開發機無 Docker，遷移一律以人工方式套用：
 **Supabase 主控台 → SQL Editor → 貼入檔案全文 → Run**，依編號順序執行。
 
+> 本專案刻意不提供 `db:reset` 與 `db:push` 的 npm script：前者需要 Docker，
+> 後者需要 CLI 已 link 至專案，兩者在目前的環境都會失敗，而一個會失敗的捷徑
+> 比沒有捷徑更糟。日後補建開發專案且完成 `npx supabase link` 之後，
+> 可直接使用 `npx supabase db push --project-ref <ref>`。
+
 ### 8.2 遷移清單
 
 | 編號 | 內容 | 關鍵設計 |

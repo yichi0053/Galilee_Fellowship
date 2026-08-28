@@ -59,17 +59,6 @@
 .owner__confirm { display: flex; gap: 0.5rem; }
 .owner__confirm .paper-button { flex: 1; }
 
-.hidden-note {
-  background: #fdecea;
-  border-left: 3px solid var(--pin);
-  color: #8a2e27;
-  padding: 0.6rem 0.75rem;
-  border-radius: 3px;
-  font-size: 0.85rem;
-  line-height: 1.55;
-  margin: 0 0 1rem;
-}
-
 /* ADR-0019：詳細頁的標題。照片之上，是這一頁的 h1。 */
 .post-title {
   margin: 0 0 0.6rem;

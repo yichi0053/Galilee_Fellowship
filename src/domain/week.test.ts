@@ -3,7 +3,7 @@
  * 時區陷阱密集，UTC 與 Asia/Taipei 的差異在週日晚間與週一凌晨會出錯。
  */
 import { describe, expect, it } from 'vitest';
-import { parseWeekStart, shiftWeeks, weekBounds, weekStartOf, weeksBetween } from './week';
+import { parseWeekStart, shiftWeeks, weekStartOf, weeksBetween } from './week';
 
 // 2026-08-24 是星期一，2026-08-26 是星期三。
 const MON = parseWeekStart('2026-08-24');
@@ -84,20 +84,6 @@ describe('weeksBetween', () => {
     expect(weeksBetween(PREV_MON, MON)).toBe(1);
     expect(weeksBetween(MON, MON)).toBe(0);
     expect(weeksBetween(MON, shiftWeeks(MON, 17))).toBe(17);
-  });
-});
-
-describe('weekBounds', () => {
-  it('區間起點為台灣時間週一 00:00', () => {
-    expect(weekBounds(MON).start.toISOString()).toBe('2026-08-23T16:00:00.000Z');
-  });
-
-  it('區間為前閉後開，長度剛好七天', () => {
-    const { start, end } = weekBounds(MON);
-    expect(end.getTime() - start.getTime()).toBe(7 * 86_400_000);
-    expect(weekStartOf(start)).toBe(MON);
-    expect(weekStartOf(new Date(end.getTime() - 1))).toBe(MON);
-    expect(weekStartOf(end)).toBe('2026-08-31');
   });
 });
 

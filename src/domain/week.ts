@@ -91,14 +91,3 @@ export function parseWeekStart(value: string): WeekStart {
 export function weeksBetween(from: WeekStart, to: WeekStart): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / (7 * DAY_MS));
 }
-
-/**
- * 該週界所涵蓋的 UTC 時間區間 [start, end)。
- * 供「這則貼文屬於哪一週」的反向查驗，以及測試用。
- */
-export function weekBounds(week: WeekStart): { start: Date; end: Date } {
-  // 台灣為 UTC+8 且自 1979 年起未再實施日光節約時間，故偏移量固定。
-  const OFFSET_MS = 8 * 60 * 60 * 1000;
-  const start = new Date(Date.parse(`${week}T00:00:00Z`) - OFFSET_MS);
-  return { start, end: new Date(start.getTime() + 7 * DAY_MS) };
-}
