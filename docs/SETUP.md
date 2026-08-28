@@ -1,39 +1,21 @@
-# SETUP — 人工前置步驟（T-01）
+# SETUP — 首次建置的操作細節
 
-這些步驟需要你本人操作外部服務，程式無法代勞。**完成前無法進入階段二（資料層）。**
-每一步都會產出一個要填進 `.env` 的值。
+**完整的建置流程、參數與相依順序見 [BUILD.md](BUILD.md)。**
+本文只保留那份規格書不適合承載的東西：外部服務介面上的陷阱、
+已知缺陷的處理方式，以及本專案實際上線時的完成紀錄。
 
-先複製環境檔：
-
-```bash
-cp .env.example .env
-```
-
----
-
-## 1. Supabase 專案
-
-1. https://supabase.com/dashboard → **New project**
-2. Region 選 **Northeast Asia (Tokyo)** 或 **Southeast Asia (Singapore)**，兩者對台灣延遲最低
-3. 設定 Database password 並**存到密碼管理器**，遺失需重設整個資料庫密碼
-4. 建立完成後至 **Settings → API**，取得：
-
-| Dashboard 欄位 | 填入 `.env` 的變數 |
+| 想找什麼 | 去哪 |
 |---|---|
-| Project URL | `VITE_SUPABASE_URL` |
-| `anon` `public` key | `VITE_SUPABASE_ANON_KEY` |
-| `service_role` `secret` key | `SUPABASE_SERVICE_ROLE_KEY` |
-
-> `service_role` key 繞過所有 RLS。它**只能**出現在 `.env`（已被 gitignore）與 Edge Function 的
-> secret 中，絕對不可加 `VITE_` 前綴，否則會被打包進瀏覽器 bundle。
-
-5. **現在只開這一個，把它當開發專案用**（ADR-0017）。
-   隨便摸、隨便重建、`verify:rls` 想跑幾次都行。
-   正式專案在上線前才開，見本文第 7 節。
+| 八個階段的順序與為什麼 | [BUILD.md 第 4 節](BUILD.md) |
+| 環境變數在四個地方各叫什麼 | [BUILD.md 第 13 節](BUILD.md) |
+| Supabase 專案建立、遷移套用 | [BUILD.md 第 5、8 節](BUILD.md) |
+| Cloudflare Pages 的建置設定與環境變數 | [BUILD.md 第 10 節](BUILD.md) |
+| GitHub secrets 與排程 | [BUILD.md 第 12 節](BUILD.md) |
+| 上線後的維運與復原 | [OPERATIONS.md](OPERATIONS.md) |
 
 ---
 
-## 2. Google OAuth client
+## 1. Google OAuth client
 
 Google Cloud Console 已改版為 **Google Auth Platform**，設定拆成 Branding、Audience、
 Data Access、Clients 四個分頁。
@@ -106,7 +88,7 @@ Data Access、Clients 四個分頁。
 
 8. **Authentication → URL Configuration**
 
-   下文的 `<專案名>` 是你在 Cloudflare Pages 建立專案時自己取的名字（見第 3 節）。
+   下文的 `<專案名>` 是你在 Cloudflare Pages 建立專案時自己取的名字（見第 2 節）。
    **取名之前這個網址並不存在**，所以現階段先只填本機這組：
 
    - Site URL：`http://localhost:5173`
@@ -157,10 +139,12 @@ Data Access、Clients 四個分頁。
 
    若警告頁真的出現，回頭檢查 Data Access 是不是混進了第四個 scope。
 
-   > **開發專案已於 2026-08-27 實測通過**：非清單帳號可登入、無警告頁、
+   > **已於 2026-08-27 實測通過**：非清單帳號可登入、無警告頁、
    > token payload 含 `email`、`email_verified`、`full_name`、`picture`。
    > 第 4 步的 basic scopes 例外確認成立。
-   > **正式專案上線時要再測一次**（見第 7 節）—— 兩個專案的 Auth 設定不共用。
+   >
+   > 完整的登入與加入流程亦於 2026-08-28 在正式網址上實測通過（第 3.2 節）。
+   > ADR-0018 之後只有一個 Supabase 專案，故 Auth 設定不需要在兩處各測一次。
 
 > **導回的網址列裡是活的憑證，不要外流。** `#access_token=` 是有效的 session JWT
 > （約 1 小時），後面的 `refresh_token` **不會自己過期**，拿到的人可以無限期換新 token。
@@ -174,81 +158,27 @@ Data Access、Clients 四個分頁。
 
 ---
 
-## 3. Cloudflare Pages
+## 2. Cloudflare Pages 的專案命名
 
-1. https://dash.cloudflare.com → **Workers & Pages → Create → Pages**
-2. 連接 git repo（或先用 **Direct Upload** 手動上傳 `dist/`）
+建置設定與環境變數見 [BUILD.md 第 10 節](BUILD.md)。這裡只記一件會讓人卡住的事。
 
-> **站台網址在這一步定案。** 你輸入的專案名稱直接決定網址 —— 取名 `galilee-fellowship`
-> 就得到 `https://galilee-fellowship.pages.dev`。
+> **站台網址在建立專案那一刻定案。** 你輸入的專案名稱直接決定網址——
+> 取名 `galilee-fellowship` 就得到 `https://galilee-fellowship.pages.dev`。
 >
-> 名稱拿去當子網域，所以受 DNS 規則限制：**只允許小寫字母、數字、連字號**，
-> 1 至 58 字元，頭尾不能是連字號。**大寫與底線都會被退回** ——
+> 名稱會拿去當子網域，因此受 DNS 規則限制：**只允許小寫字母、數字、連字號**，
+> 1 至 58 字元，頭尾不能是連字號。**大寫與底線都會被退回**——
 > `Galilee_Fellowship` 不合法，`galilee-fellowship` 才可以。
-> 用「連接 git repo」建立時 Cloudflare 會拿 repo 名稱當預設值並自動正規化，
-> 但那一格可以編輯，**自己打上去**，不要賭它轉出來的結果跟你想的一樣。
+>
+> 以「連接 git repo」建立時，Cloudflare 會拿 repo 名稱當預設值並自動正規化，
+> 但那一格可以編輯。**自己打上去**，不要賭它轉出來的結果跟你想的一樣。
 >
 > 名稱在 `pages.dev` 底下全球唯一，被別人佔走就得換一個（例如加上 `-wall`）。
-> 所以**在這裡按下建立、確認名字真的到手之前，第 2 節第 8 步的正式網址無從填起**。
-> 定案後記得回第 2 節把 Supabase 的 Site URL 與 Redirect URLs 補上。
-
-3. 建置設定：
-
-| 欄位 | 值 |
-|---|---|
-| Framework preset | None |
-| Build command | `npm run build` |
-| Build output directory | `dist` |
-
-4. **Settings → Environment variables** 加入（Production 與 Preview 各一份）：
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
-   - `VITE_ROOM_ID`
-
-> `public/_redirects` 已寫好 §10.1 的路由，Cloudflare Pages 會自動套用，不需額外設定。
+> **在這裡按下建立、確認名字真的到手之前，第 1 節第 8 步的正式網址無從填起。**
+> 定案後記得回第 1 節把 Supabase 的 Site URL 與 Redirect URLs 補上。
 
 ---
 
-## 4. Keepalive（防 7 天自動暫停）
-
-`.github/workflows/keepalive.yml` 已建立。需在 GitHub repo 設定 secrets：
-
-**Settings → Secrets and variables → Actions → New repository secret**
-
-| Secret | 值 |
-|---|---|
-| `SUPABASE_URL` | 同 `VITE_SUPABASE_URL` |
-| `SUPABASE_ANON_KEY` | 同 `VITE_SUPABASE_ANON_KEY` |
-
-設好後到 **Actions** 分頁手動觸發一次（workflow_dispatch）確認為綠燈。
-
-備援請另設 UptimeRobot，詳見 `OPERATIONS.md` 第 3 節。
-
----
-
-## 5. 房間 id
-
-資料層 migration 與種子資料套用後，執行以下 SQL 取得房間 uuid，填入 `VITE_ROOM_ID`
-（ADR-0004：schema 保留 `room_id` 但 UI 只暴露單一房間）：
-
-```sql
-select id, name from rooms;
-```
-
----
-
-## 6. 非程式待辦（架構書 §17）
-
-- [ ] **背景牆圖片**：先找一張免費授權的軟木塞板或水泥牆材質圖放進 `public/`，
-      避免牆頁視覺被素材卡住。正式素材可後補。
-- [x] **告知同意文字**：已於 2026-08-27 由團契負責人確認，維持 `src/ui/pages/join.ts`
-      `consentBlock()` 的原文。四個要點——照片與姓名會被同房間成員看到、
-      持有連結的非成員可看到照片但姓名遮蔽、成員可自行刪除自己的貼文、
-      退出房間後貼文仍會保留顯示——不可刪減。
-
----
-
-## 7. 上線檢查清單
+## 3. 上線檢查清單
 
 **全部項目已於 2026-08-28 完成，v1.0 已上線。** 本節保留為紀錄，
 供日後重建環境時對照。逐步流程見 [BUILD.md](BUILD.md)。
@@ -257,7 +187,7 @@ select id, name from rooms;
 此後 migration、手改資料、任何實驗，動到的都是 24 個人的真實照片。
 免費方案還允許第二個 project，隨時可以補開——但不要再拿這一個當實驗場。
 
-### 7.1 資料層轉正
+### 3.1 資料層轉正
 
 | 項目 | 狀態 | 做法 |
 |---|---|---|
@@ -276,7 +206,7 @@ select id, name from rooms;
 > **日後補開開發專案的主要理由就是這件事**：把 `.env` 的 `SUPABASE_ENV` 拿掉、
 > 指向那個專案即可重新跑起來。
 
-### 7.2 站台
+### 3.2 站台
 
 | 項目 | 狀態 |
 |---|---|
@@ -285,7 +215,7 @@ select id, name from rooms;
 | Pages 環境變數（Production 與 Preview 各一份） | ✅ |
 | Google OAuth 的 redirect URI | 不需變更——專案沒換，callback 位址相同 |
 
-### 7.3 維運
+### 3.3 維運
 
 | 項目 | 狀態 |
 |---|---|
@@ -303,7 +233,7 @@ scheduled workflow，而學期是 126 天。workflow 會在距上次 commit 滿 
 自己 commit 一個時間戳。若把 repo 設為需要 PR 才能推 main，這一步會失敗——
 那種情況改設 UptimeRobot 當主力。
 
-### 7.4 清掉開發殘留
+### 3.4 清掉開發殘留
 
 測試貼文的資料列與 Storage 檔案要一起清，且**順序不可顛倒**——
 先刪資料列的話就再也查不到 `image_path`，檔案會變成永遠找不回來的孤兒。
@@ -314,7 +244,7 @@ scheduled workflow，而學期是 126 天。workflow 會在距上次 commit 滿 
 
 `join_attempts` 的測試紀錄可以留著，那只是稽核用。
 
-### 7.5 非程式（架構書 §17）
+### 3.5 非程式（架構書 §17）
 
 | 項目 | 狀態 |
 |---|---|
@@ -329,6 +259,5 @@ scheduled workflow，而學期是 126 天。workflow 會在距上次 commit 滿 
 npm install
 npm run lint       # 應通過
 npm run typecheck  # 應通過
+npm test           # 應通過
 ```
-
-`.env` 中 `VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY` 有值後即可進入階段二。

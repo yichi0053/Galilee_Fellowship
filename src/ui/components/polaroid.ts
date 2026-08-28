@@ -66,6 +66,16 @@ export function polaroidCard(post: Post, options: PolaroidOptions = {}): HTMLEle
   const card = document.createElement('a');
   card.href = `/post/${post.id}`;
   card.className = 'polaroid';
+
+  // §9.5：被管理員下架的貼文。走到這裡的一定是作者自己的——其他人的已在
+  // posts 模組濾掉——但它必須一眼看得出不是正常狀態，否則作者會以為下架沒生效。
+  //
+  // 標示放在元件內而不是各呼叫端：牆頁與「我的貼文」都會顯示下架的貼文，
+  // 先前兩邊各有一份相同的四行，而牆頁那一份漏掉了整整一天沒有人發現。
+  if (post.hiddenByAdmin) {
+    card.dataset['hidden'] = 'true';
+    card.title = '這則已被管理員下架，只有你看得到。';
+  }
   card.style.setProperty('--rot', `${post.rotationDeg}deg`);
   card.dataset['postId'] = post.id;
 

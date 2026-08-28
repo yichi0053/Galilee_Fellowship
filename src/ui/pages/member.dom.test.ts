@@ -108,11 +108,16 @@ describe('/member/me', () => {
   });
 });
 
-describe('/member/<其他人> —— memberFilter 是第二期（ADR-0013）', () => {
-  it('第一期不渲染別人的貼文列表，也不假裝壞掉', async () => {
-    const app = await render({ path: '/member/m-2' });
+describe('/member/<其他人> —— 導向個人資料頁（ADR-0023）', () => {
+  it('導向 /members/<同一個 id>，而不是顯示已經不成立的「還沒開放」', async () => {
+    // 看別人的資料現在是開放的，只是換了網址。全案已無連結指向這條舊路徑，
+    // 走到這裡的只有舊書籤與手打網址。
+    await render({ path: '/member/m-2' });
+    expect(window.location.replace).toHaveBeenCalledWith('/members/m-2');
+  });
+
+  it('導向之前不查任何貼文', async () => {
+    await render({ path: '/member/m-2' });
     expect(mocks.listMine).not.toHaveBeenCalled();
-    expect(app.querySelector('.paper-card__title')?.textContent).toBe('這個功能還沒開放');
-    expect(app.querySelector('.paper-message')?.textContent).toContain('之後才會開放');
   });
 });

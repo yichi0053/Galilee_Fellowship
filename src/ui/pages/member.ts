@@ -3,9 +3,12 @@
  *
  * UI 層禁止 import db/（§12.4 規則 2）。資料一律經由各 module 的 index.ts。
  *
- * 第一期只做 `/member/me`：牆頁導覽列的「我的貼文」指向這裡，
- * 作者需要一個地方看見自己所有的貼文、以及被下架的那些（§9.5）。
- * 看別人的貼文是 memberFilter，第二期才開（ADR-0013）。
+ * 這一頁只服務 `/member/me`：作者需要一個地方看見自己所有的貼文、
+ * 以及被下架的那些（§9.5）。
+ *
+ * `/member/<別人的 id>` 會被導向 `/members/:id`（ADR-0023 的個人資料頁）。
+ * 看別人的**貼文列表**仍是 memberFilter，第二期才開（ADR-0013）——
+ * 個人資料與貼文列表是兩件事，不要看混。
  */
 
 import '@ui/styles/wall.css';
@@ -13,7 +16,6 @@ import '@ui/styles/paper.css';
 import '@ui/styles/member.css';
 
 import { QUOTA } from '@config/constants';
-import { isEnabled } from '@config/features';
 import { getViewer } from '@modules/membership';
 import type { Viewer } from '@modules/membership';
 import { getMyQuota, listMine } from '@modules/posts';
@@ -81,13 +83,8 @@ function grid(posts: readonly Post[]): HTMLElement {
   const masonry = el('div', 'masonry');
   for (const post of posts) {
     // 卡片本身就是連往 /post/:id 的連結（polaroid.ts）。
-    const cardEl = polaroidCard(post, { deleteCountdown: true });
-    // §9.5：下架的貼文只有作者看得到，必須一眼看出它不是正常狀態。
-    if (post.hiddenByAdmin) {
-      cardEl.dataset['hidden'] = 'true';
-      cardEl.title = '這則已被管理員下架，只有你看得到。';
-    }
-    masonry.append(cardEl);
+    // 下架的標示由 polaroidCard 自己處理（§9.5）。
+    masonry.append(polaroidCard(post, { deleteCountdown: true }));
   }
   wrap.append(masonry);
   return wrap;
@@ -99,19 +96,13 @@ async function main(): Promise<void> {
 
   const segment = segmentFromPath();
   if (segment !== 'me') {
-    // ADR-0013：未啟用的功能，UI 不渲染入口，也不假裝它壞了。
-    app.className = 'paper-page';
-    const box = card(isEnabled('memberFilter') ? '找不到這位成員' : '這個功能還沒開放');
-    box.append(
-      message(
-        'info',
-        isEnabled('memberFilter')
-          ? '這個連結指向的成員不存在，或你沒有權限看到。'
-          : '看別人的貼文列表是之後才會開放的功能。你可以先回牆上看大家的貼文。',
-      ),
-    );
-    box.append(backLink());
-    app.replaceChildren(box);
+    // §10.8：看別人的資料現在是開放的，只是換了網址（/members/:id，ADR-0023）。
+    // 全案已無任何連結指向 /member/<別人的 id>，走到這裡的只有舊書籤與手打網址，
+    // 所以導過去而不是顯示一句已經不成立的「這個功能還沒開放」。
+    //
+    // 用 replace 而非 assign：這一頁沒有內容，留在瀏覽紀錄裡只會讓上一頁鍵
+    // 把人彈回來、再被導走一次（與首頁的導流同一個理由）。
+    window.location.replace(`/members/${segment}`);
     return;
   }
 
